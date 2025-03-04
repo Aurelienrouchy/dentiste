@@ -1,15 +1,35 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, FileText, Pencil, Trash2, AlertCircle, Copy, AlignLeft, AlignCenter, Printer } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { TemplateForm } from '@/components/templates/TemplateForm';
-import { TemplateService, DocumentTemplate } from '@/lib/services/template.service';
-import { useAuth } from '@/lib/hooks/useAuth';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
+import React, { useState, useEffect } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Plus,
+  FileText,
+  Pencil,
+  Trash2,
+  AlertCircle,
+  Copy,
+} from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { TemplateForm } from "@/components/templates/TemplateForm";
+import {
+  TemplateService,
+  DocumentTemplate,
+} from "@/lib/services/template.service";
+import { useAuth } from "@/lib/hooks/useAuth";
+import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,7 +42,13 @@ import {
 } from "@/components/ui/alert-dialog";
 
 // Utiliser TabsItem pour remplacer TabsTrigger
-function TabsItem({ value, children }: { value: string; children: React.ReactNode }) {
+function TabsItem({
+  value,
+  children,
+}: {
+  value: string;
+  children: React.ReactNode;
+}) {
   return (
     <button
       data-state={value}
@@ -35,27 +61,28 @@ function TabsItem({ value, children }: { value: string; children: React.ReactNod
 
 export function TemplatesPage() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('mes-templates');
+  const [activeTab, setActiveTab] = useState("mes-templates");
   const [templates, setTemplates] = useState<DocumentTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState<DocumentTemplate | null>(null);
+  const [selectedTemplate, setSelectedTemplate] =
+    useState<DocumentTemplate | null>(null);
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
   const [isDuplicating, setIsDuplicating] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  
+
   // Charger les templates
   useEffect(() => {
     if (!user) return;
-    
+
     loadTemplates();
   }, [user]);
-  
+
   const loadTemplates = async () => {
     if (!user) return;
-    
+
     try {
       setIsLoading(true);
       setError(null);
@@ -68,25 +95,31 @@ export function TemplatesPage() {
       setIsLoading(false);
     }
   };
-  
+
   // Filtrer les templates selon l'onglet actif
-  const filteredTemplates = templates.filter(t => {
-    if (activeTab === 'mes-templates') {
+  const filteredTemplates = templates.filter((t) => {
+    if (activeTab === "mes-templates") {
       return !t.isSystem;
     } else {
       return t.isSystem;
     }
   });
-  
+
   // Créer un nouveau template
-  const handleCreateTemplate = async (values: any) => {
+  const handleCreateTemplate = async (values: {
+    title: string;
+    description: string;
+    content: string;
+  }) => {
     if (!user) {
-      console.error("Tentative de création de template sans utilisateur connecté");
+      console.error(
+        "Tentative de création de template sans utilisateur connecté"
+      );
       return;
     }
-    
+
     console.log("Début de création du template:", values);
-    
+
     try {
       setIsProcessing(true);
       setError(null);
@@ -94,7 +127,10 @@ export function TemplatesPage() {
         userId: user.uid,
         title: values.title,
         description: values.description,
-        content: values.content.length > 100 ? values.content.substring(0, 100) + "..." : values.content
+        content:
+          values.content.length > 100
+            ? values.content.substring(0, 100) + "..."
+            : values.content,
       });
       await TemplateService.createTemplate({
         userId: user.uid,
@@ -112,11 +148,15 @@ export function TemplatesPage() {
       setIsProcessing(false);
     }
   };
-  
+
   // Mettre à jour un template existant
-  const handleUpdateTemplate = async (values: any) => {
+  const handleUpdateTemplate = async (values: {
+    title: string;
+    description: string;
+    content: string;
+  }) => {
     if (!user || !selectedTemplate) return;
-    
+
     try {
       setIsProcessing(true);
       setError(null);
@@ -135,11 +175,11 @@ export function TemplatesPage() {
       setIsProcessing(false);
     }
   };
-  
+
   // Supprimer un template
   const handleDeleteTemplate = async () => {
     if (!selectedTemplate) return;
-    
+
     try {
       setIsProcessing(true);
       setError(null);
@@ -154,11 +194,11 @@ export function TemplatesPage() {
       setIsProcessing(false);
     }
   };
-  
+
   // Dupliquer un template
   const handleDuplicateTemplate = async () => {
     if (!user || !selectedTemplate) return;
-    
+
     try {
       setIsProcessing(true);
       setError(null);
@@ -178,12 +218,14 @@ export function TemplatesPage() {
       setIsProcessing(false);
     }
   };
-  
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Templates de documents</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Templates de documents
+          </h1>
           <p className="text-muted-foreground">
             Créez et gérez vos templates personnalisés
           </p>
@@ -193,20 +235,20 @@ export function TemplatesPage() {
           Créer un template
         </Button>
       </div>
-      
+
       {error && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-      
+
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsItem value="mes-templates">Mes templates</TabsItem>
           <TabsItem value="templates-système">Templates système</TabsItem>
         </TabsList>
-        
+
         <TabsContent value="mes-templates" className="space-y-4">
           {isLoading ? (
             <Card>
@@ -221,9 +263,12 @@ export function TemplatesPage() {
               <CardContent className="pt-6">
                 <div className="flex flex-col items-center justify-center p-8 text-center">
                   <FileText className="h-10 w-10 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium mb-2">Aucun template personnalisé</h3>
+                  <h3 className="text-lg font-medium mb-2">
+                    Aucun template personnalisé
+                  </h3>
                   <p className="text-sm text-muted-foreground mb-6">
-                    Vous n'avez pas encore créé de templates personnalisés. Commencez par en créer un.
+                    Vous n'avez pas encore créé de templates personnalisés.
+                    Commencez par en créer un.
                   </p>
                   <Button onClick={() => setIsCreating(true)}>
                     <Plus className="mr-2 h-4 w-4" />
@@ -234,7 +279,7 @@ export function TemplatesPage() {
             </Card>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {filteredTemplates.map(template => (
+              {filteredTemplates.map((template) => (
                 <Card key={template.id} className="overflow-hidden">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-lg">{template.title}</CardTitle>
@@ -245,8 +290,8 @@ export function TemplatesPage() {
                     </CardDescription>
                   </CardContent>
                   <div className="p-4 pt-0 flex justify-end gap-2">
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
                       onClick={() => {
                         setSelectedTemplate(template);
@@ -256,8 +301,8 @@ export function TemplatesPage() {
                       <Copy className="h-3.5 w-3.5 mr-1" />
                       Dupliquer
                     </Button>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
                       onClick={() => {
                         setSelectedTemplate(template);
@@ -267,8 +312,8 @@ export function TemplatesPage() {
                       <Pencil className="h-3.5 w-3.5 mr-1" />
                       Modifier
                     </Button>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
                       className="text-destructive"
                       onClick={() => {
@@ -285,7 +330,7 @@ export function TemplatesPage() {
             </div>
           )}
         </TabsContent>
-        
+
         <TabsContent value="templates-système" className="space-y-4">
           {isLoading ? (
             <Card>
@@ -300,7 +345,9 @@ export function TemplatesPage() {
               <CardContent className="pt-6">
                 <div className="flex flex-col items-center justify-center p-8 text-center">
                   <FileText className="h-10 w-10 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium mb-2">Aucun template système</h3>
+                  <h3 className="text-lg font-medium mb-2">
+                    Aucun template système
+                  </h3>
                   <p className="text-sm text-muted-foreground">
                     Il n'y a pas encore de templates système disponibles.
                   </p>
@@ -309,11 +356,13 @@ export function TemplatesPage() {
             </Card>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {filteredTemplates.map(template => (
+              {filteredTemplates.map((template) => (
                 <Card key={template.id} className="overflow-hidden">
                   <CardHeader className="pb-2">
                     <div className="flex justify-between items-start">
-                      <CardTitle className="text-lg">{template.title}</CardTitle>
+                      <CardTitle className="text-lg">
+                        {template.title}
+                      </CardTitle>
                       <Badge variant="secondary">Système</Badge>
                     </div>
                   </CardHeader>
@@ -323,8 +372,8 @@ export function TemplatesPage() {
                     </CardDescription>
                   </CardContent>
                   <div className="p-4 pt-0 flex justify-end gap-2">
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
                       onClick={() => {
                         setSelectedTemplate(template);
@@ -341,10 +390,10 @@ export function TemplatesPage() {
           )}
         </TabsContent>
       </Tabs>
-      
+
       {/* Formulaire de création de template */}
-      <Dialog 
-        open={isCreating} 
+      <Dialog
+        open={isCreating}
         onOpenChange={(open) => !open && setIsCreating(false)}
       >
         <DialogContent className="bg-white sm:max-w-[800px]">
@@ -360,10 +409,10 @@ export function TemplatesPage() {
           </div>
         </DialogContent>
       </Dialog>
-      
+
       {/* Formulaire d'édition de template */}
-      <Dialog 
-        open={isEditing} 
+      <Dialog
+        open={isEditing}
         onOpenChange={(open) => {
           if (!open) {
             setIsEditing(false);
@@ -387,10 +436,10 @@ export function TemplatesPage() {
           </div>
         </DialogContent>
       </Dialog>
-      
+
       {/* Confirmation de duplication */}
-      <Dialog 
-        open={isDuplicating} 
+      <Dialog
+        open={isDuplicating}
         onOpenChange={(open) => {
           if (!open) {
             setIsDuplicating(false);
@@ -403,12 +452,12 @@ export function TemplatesPage() {
             <DialogTitle>Dupliquer le template</DialogTitle>
           </DialogHeader>
           <p className="py-4">
-            Voulez-vous dupliquer le template "{selectedTemplate?.title}" ? 
-            Une copie sera créée dans vos templates personnalisés.
+            Voulez-vous dupliquer le template "{selectedTemplate?.title}" ? Une
+            copie sera créée dans vos templates personnalisés.
           </p>
           <div className="flex justify-end gap-2">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => {
                 setIsDuplicating(false);
                 setSelectedTemplate(null);
@@ -416,19 +465,16 @@ export function TemplatesPage() {
             >
               Annuler
             </Button>
-            <Button 
-              onClick={handleDuplicateTemplate}
-              disabled={isProcessing}
-            >
+            <Button onClick={handleDuplicateTemplate} disabled={isProcessing}>
               {isProcessing ? "Duplication..." : "Dupliquer"}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
-      
+
       {/* Confirmation de suppression */}
-      <AlertDialog 
-        open={isConfirmDeleteOpen} 
+      <AlertDialog
+        open={isConfirmDeleteOpen}
         onOpenChange={(open) => {
           if (!open) {
             setIsConfirmDeleteOpen(false);
@@ -440,13 +486,13 @@ export function TemplatesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Êtes-vous sûr ?</AlertDialogTitle>
             <AlertDialogDescription>
-              Cette action ne peut pas être annulée. Le template "{selectedTemplate?.title}" sera 
-              définitivement supprimé.
+              Cette action ne peut pas être annulée. Le template "
+              {selectedTemplate?.title}" sera définitivement supprimé.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Annuler</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={handleDeleteTemplate}
               disabled={isProcessing}
               className="bg-destructive text-destructive-foreground"
@@ -458,4 +504,4 @@ export function TemplatesPage() {
       </AlertDialog>
     </div>
   );
-} 
+}
