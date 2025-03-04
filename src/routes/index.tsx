@@ -1,25 +1,35 @@
-import { createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/react-router';
-import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { AccueilPage } from './AccueilPage';
-import { DocumentsPage } from './DocumentsPage';
-import { PatientsPage } from './PatientsPage';
-import { ContactsPage } from './ContactsPage';
-import { LoginPage } from './LoginPage';
-import { RegisterPage } from './RegisterPage';
-import { ResetPasswordPage } from './ResetPasswordPage';
-import IntegrationsPage from './IntegrationsPage';
-import { TemplatesPage } from './TemplatesPage';
-import { useAuth } from '@/lib/firebase/auth-context';
+import {
+  createRootRoute,
+  createRoute,
+  createRouter,
+  Outlet,
+} from "@tanstack/react-router";
+import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { AccueilPage } from "./AccueilPage";
+import { DocumentsPage } from "./DocumentsPage";
+import { PatientsPage } from "./PatientsPage";
+import { ContactsPage } from "./ContactsPage";
+import { LoginPage } from "./LoginPage";
+import { RegisterPage } from "./RegisterPage";
+import { ResetPasswordPage } from "./ResetPasswordPage";
+import IntegrationsPage from "./IntegrationsPage";
+import { TemplatesPage } from "./TemplatesPage";
+import { useAuth } from "@/lib/firebase/auth-context";
 
 // Route racine
 const rootRoute = createRootRoute({
   component: () => {
-    const { currentUser, loading } = useAuth();
-    
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const { loading } = useAuth();
+
     if (loading) {
-      return <div className="flex h-screen items-center justify-center">Chargement...</div>;
+      return (
+        <div className="flex h-screen items-center justify-center">
+          Chargement...
+        </div>
+      );
     }
-    
+
     return <Outlet />;
   },
 });
@@ -27,34 +37,35 @@ const rootRoute = createRootRoute({
 // Routes d'authentification
 export const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/login',
+  path: "/login",
   component: LoginPage,
 });
 
 export const registerRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/register',
+  path: "/register",
   component: RegisterPage,
 });
 
 export const resetPasswordRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/reset-password',
+  path: "/reset-password",
   component: ResetPasswordPage,
 });
 
 // Wrapper de route protégée
 const protectedRoute = createRoute({
   getParentRoute: () => rootRoute,
-  id: 'protected',
+  id: "protected",
   component: () => {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     const { currentUser } = useAuth();
-    
+
     if (!currentUser) {
       // Redirection vers la page de connexion si non authentifié
       return <LoginPage />;
     }
-    
+
     return (
       <DashboardLayout>
         <Outlet />
@@ -66,37 +77,37 @@ const protectedRoute = createRoute({
 // Routes du tableau de bord
 export const indexRoute = createRoute({
   getParentRoute: () => protectedRoute,
-  path: '/',
+  path: "/",
   component: AccueilPage,
 });
 
 export const documentsRoute = createRoute({
   getParentRoute: () => protectedRoute,
-  path: '/documents',
+  path: "/documents",
   component: DocumentsPage,
 });
 
 export const patientsRoute = createRoute({
   getParentRoute: () => protectedRoute,
-  path: '/patients',
+  path: "/patients",
   component: PatientsPage,
 });
 
 export const contactsRoute = createRoute({
   getParentRoute: () => protectedRoute,
-  path: '/contacts',
+  path: "/contacts",
   component: ContactsPage,
 });
 
 export const integrationsRoute = createRoute({
   getParentRoute: () => protectedRoute,
-  path: '/integrations',
+  path: "/integrations",
   component: IntegrationsPage,
 });
 
 export const templatesRoute = createRoute({
   getParentRoute: () => protectedRoute,
-  path: '/templates',
+  path: "/templates",
   component: TemplatesPage,
 });
 
@@ -118,8 +129,8 @@ const routeTree = rootRoute.addChildren([
 export const router = createRouter({ routeTree });
 
 // Enregistrement du routeur pour la sécurité de type
-declare module '@tanstack/react-router' {
+declare module "@tanstack/react-router" {
   interface Register {
     router: typeof router;
   }
-} 
+}

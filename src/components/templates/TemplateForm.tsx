@@ -1,23 +1,35 @@
-import React from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { AlertCircle, Loader2 } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { TemplateEditor } from './TemplateEditor';
-import { DocumentTemplate } from '@/lib/services/template.service';
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { AlertCircle, Loader2 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { TemplateEditor } from "./TemplateEditor";
+import { DocumentTemplate } from "@/lib/services/template.service";
 
 const templateSchema = z.object({
-  title: z.string().min(3, { message: 'Le titre doit contenir au moins 3 caractères' }),
-  description: z.string().min(10, { message: 'La description doit contenir au moins 10 caractères' }),
-  content: z.string().min(20, { message: 'Le contenu doit contenir au moins 20 caractères' })
-    .refine(val => val.includes('[transcription]'), {
-      message: 'Le contenu doit inclure la balise [transcription]'
+  title: z
+    .string()
+    .min(3, { message: "Le titre doit contenir au moins 3 caractères" }),
+  description: z.string().min(10, {
+    message: "La description doit contenir au moins 10 caractères",
+  }),
+  content: z
+    .string()
+    .min(20, { message: "Le contenu doit contenir au moins 20 caractères" })
+    .refine((val) => val.includes("[transcription]"), {
+      message: "Le contenu doit inclure la balise [transcription]",
     }),
 });
 
@@ -30,13 +42,20 @@ interface TemplateFormProps {
   error?: string | null;
 }
 
-export function TemplateForm({ template, onSave, isLoading = false, error = null }: TemplateFormProps) {
+export function TemplateForm({
+  template,
+  onSave,
+  isLoading = false,
+  error = null,
+}: TemplateFormProps) {
   const form = useForm<TemplateFormValues>({
     resolver: zodResolver(templateSchema),
     defaultValues: {
-      title: template?.title || '',
-      description: template?.description || '',
-      content: template?.content || `
+      title: template?.title || "",
+      description: template?.description || "",
+      content:
+        template?.content ||
+        `
 <h2>Template de document</h2>
 <p>Date: [date]</p>
 
@@ -57,12 +76,15 @@ Date de naissance: [date_naissance]</p>
   });
 
   const handleSubmit = async (values: TemplateFormValues) => {
-    console.log('Soumission du formulaire de template avec les valeurs:', values);
+    console.log(
+      "Soumission du formulaire de template avec les valeurs:",
+      values
+    );
     try {
       await onSave(values);
-      console.log('Template sauvegardé avec succès');
+      console.log("Template sauvegardé avec succès");
     } catch (error) {
-      console.error('Erreur lors de la sauvegarde du template:', error);
+      console.error("Erreur lors de la sauvegarde du template:", error);
     }
   };
 
@@ -77,7 +99,7 @@ Date de naissance: [date_naissance]</p>
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
-            
+
             <FormField
               control={form.control}
               name="title"
@@ -85,9 +107,9 @@ Date de naissance: [date_naissance]</p>
                 <FormItem>
                   <FormLabel>Titre du template</FormLabel>
                   <FormControl>
-                    <Input 
-                      placeholder="Exemple: Compte-rendu opératoire" 
-                      {...field} 
+                    <Input
+                      placeholder="Exemple: Compte-rendu opératoire"
+                      {...field}
                       className="bg-white"
                     />
                   </FormControl>
@@ -95,7 +117,7 @@ Date de naissance: [date_naissance]</p>
                 </FormItem>
               )}
             />
-            
+
             <FormField
               control={form.control}
               name="description"
@@ -103,9 +125,9 @@ Date de naissance: [date_naissance]</p>
                 <FormItem>
                   <FormLabel>Description</FormLabel>
                   <FormControl>
-                    <Textarea 
-                      placeholder="Description du template et cas d'utilisation" 
-                      {...field} 
+                    <Textarea
+                      placeholder="Description du template et cas d'utilisation"
+                      {...field}
                       className="min-h-[80px] bg-white"
                     />
                   </FormControl>
@@ -113,7 +135,7 @@ Date de naissance: [date_naissance]</p>
                 </FormItem>
               )}
             />
-            
+
             <FormField
               control={form.control}
               name="content"
@@ -132,15 +154,15 @@ Date de naissance: [date_naissance]</p>
               )}
             />
           </CardContent>
-          
+
           <CardFooter className="flex justify-end">
             <Button type="submit" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {template ? 'Mettre à jour' : 'Créer le template'}
+              {template ? "Mettre à jour" : "Créer le template"}
             </Button>
           </CardFooter>
         </Card>
       </form>
     </Form>
   );
-} 
+}

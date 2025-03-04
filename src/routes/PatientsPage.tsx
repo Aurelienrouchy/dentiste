@@ -1,12 +1,28 @@
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { UserPlus, Search, FileText, Calendar, Phone, Pencil, Trash2, Plus, User } from 'lucide-react';
-import { useAuth } from '@/lib/hooks/useAuth';
-import { PatientService } from '@/lib/services/patient.service';
-import { Patient, PatientFormValues } from '@/lib/types/patient';
-import { PatientForm } from '@/components/patients/PatientForm';
+import { useState, useEffect } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  UserPlus,
+  Search,
+  FileText,
+  Calendar,
+  Phone,
+  Pencil,
+  Trash2,
+  Plus,
+  User,
+} from "lucide-react";
+import { useAuth } from "@/lib/hooks/useAuth";
+import { PatientService } from "@/lib/services/patient.service";
+import { Patient, PatientFormValues } from "@/lib/types/patient";
+import { PatientForm } from "@/components/patients/PatientForm";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,7 +34,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
 export function PatientsPage() {
@@ -27,7 +42,9 @@ export function PatientsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [selectedPatient, setSelectedPatient] = useState<Patient | undefined>(undefined);
+  const [selectedPatient, setSelectedPatient] = useState<Patient | undefined>(
+    undefined
+  );
   const [searchTerm, setSearchTerm] = useState("");
 
   // Récupère les patients
@@ -101,7 +118,9 @@ export function PatientsPage() {
       setIsDialogOpen(false);
     } catch (error) {
       console.error("Erreur lors de l'enregistrement du patient:", error);
-      toast.error("Une erreur est survenue lors de l'enregistrement du patient");
+      toast.error(
+        "Une erreur est survenue lors de l'enregistrement du patient"
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -110,10 +129,12 @@ export function PatientsPage() {
   // Gère la suppression d'un patient
   const handleDeletePatient = async (patientId: string) => {
     if (!user) return;
-    
+
     try {
       await PatientService.deletePatient(patientId, user.uid);
-      setPatients((prevPatients) => prevPatients.filter((p) => p.id !== patientId));
+      setPatients((prevPatients) =>
+        prevPatients.filter((p) => p.id !== patientId)
+      );
       toast.success("Patient supprimé avec succès");
     } catch (error) {
       console.error("Erreur lors de la suppression du patient:", error);
@@ -137,8 +158,10 @@ export function PatientsPage() {
     return (
       patient.firstName.toLowerCase().includes(searchTermLower) ||
       patient.lastName.toLowerCase().includes(searchTermLower) ||
-      (patient.email && patient.email.toLowerCase().includes(searchTermLower)) ||
-      (patient.phoneNumber && patient.phoneNumber.toLowerCase().includes(searchTermLower))
+      (patient.email &&
+        patient.email.toLowerCase().includes(searchTermLower)) ||
+      (patient.phoneNumber &&
+        patient.phoneNumber.toLowerCase().includes(searchTermLower))
     );
   });
 
@@ -156,7 +179,7 @@ export function PatientsPage() {
           Nouveau patient
         </Button>
       </div>
-      
+
       <div className="flex items-center space-x-2">
         <div className="relative flex-1">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -170,13 +193,11 @@ export function PatientsPage() {
         </div>
         <Button variant="outline">Filtres</Button>
       </div>
-      
+
       <Card>
         <CardHeader>
           <CardTitle>Liste des patients</CardTitle>
-          <CardDescription>
-            Tous vos patients enregistrés
-          </CardDescription>
+          <CardDescription>Tous vos patients enregistrés</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -213,8 +234,9 @@ export function PatientsPage() {
                         {patient.lastName} {patient.firstName}
                       </h3>
                       <p className="text-sm text-muted-foreground">
-                        ID: {patient.id.substring(0, 8)} • 
-                        Né{patient.gender === "Madame" ? "e" : ""} le {formatBirthDate(patient.birthDate)}
+                        ID: {patient.id.substring(0, 8)} • Né
+                        {patient.gender === "Madame" ? "e" : ""} le{" "}
+                        {formatBirthDate(patient.birthDate)}
                       </p>
                     </div>
                     <div className="flex gap-2">
@@ -230,8 +252,8 @@ export function PatientsPage() {
                         <Phone className="h-4 w-4 mr-2" />
                         Contact
                       </Button>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         size="sm"
                         onClick={() => handleEditPatient(patient)}
                       >
@@ -247,9 +269,13 @@ export function PatientsPage() {
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
-                            <AlertDialogTitle>Supprimer le patient</AlertDialogTitle>
+                            <AlertDialogTitle>
+                              Supprimer le patient
+                            </AlertDialogTitle>
                             <AlertDialogDescription>
-                              Êtes-vous sûr de vouloir supprimer {patient.firstName} {patient.lastName} ? Cette action est irréversible.
+                              Êtes-vous sûr de vouloir supprimer{" "}
+                              {patient.firstName} {patient.lastName} ? Cette
+                              action est irréversible.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
@@ -270,7 +296,7 @@ export function PatientsPage() {
           )}
         </CardContent>
       </Card>
-      
+
       <Card>
         <CardHeader>
           <CardTitle>Rendez-vous à venir</CardTitle>
@@ -279,7 +305,9 @@ export function PatientsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">Aucun rendez-vous à venir</p>
+          <p className="text-sm text-muted-foreground">
+            Aucun rendez-vous à venir
+          </p>
         </CardContent>
       </Card>
 
@@ -293,4 +321,4 @@ export function PatientsPage() {
       />
     </div>
   );
-} 
+}

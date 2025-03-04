@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useEditor, EditorContent, Editor } from "@tiptap/react";
+import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Image from "@tiptap/extension-image";
@@ -19,8 +19,6 @@ import {
   Italic,
   List,
   ListOrdered,
-  Heading,
-  Code,
   Undo,
   Redo,
   Image as ImageIcon,
@@ -31,7 +29,6 @@ import {
   AlignJustify,
   Table as TableIcon,
   Underline as UnderlineIcon,
-  Type,
   Printer,
   Palette,
   Divide,
@@ -59,7 +56,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 
 interface TemplateEditorProps {
   content: string;
@@ -307,25 +303,8 @@ export function TemplateEditor({
 
   const setFontFamily = (family: string) => {
     if (!editor) return;
-
-    setSelectedFontFamily(family);
     editor.chain().focus().setFontFamily(family).run();
-  };
-
-  const isHeadingActive = (level: string): boolean => {
-    if (!editor) return false;
-
-    if (level === "paragraph") {
-      return editor.isActive("paragraph");
-    } else if (level === "h1") {
-      return editor.isActive("heading", { level: 1 });
-    } else if (level === "h2") {
-      return editor.isActive("heading", { level: 2 });
-    } else if (level === "h3") {
-      return editor.isActive("heading", { level: 3 });
-    }
-
-    return false;
+    setSelectedFontFamily(family);
   };
 
   if (!editor) {
