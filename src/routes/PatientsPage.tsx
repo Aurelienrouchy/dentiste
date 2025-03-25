@@ -166,56 +166,69 @@ export function PatientsPage() {
   });
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Patients</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+            Patients
+          </h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Gérez vos patients et leurs dossiers
           </p>
         </div>
-        <Button onClick={handleAddPatient}>
+        <Button onClick={handleAddPatient} className="w-full sm:w-auto">
           <UserPlus className="h-4 w-4 mr-2" />
           Nouveau patient
         </Button>
       </div>
 
-      <div className="flex items-center space-x-2">
+      <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             type="search"
             placeholder="Rechercher un patient..."
-            className="pl-8"
+            className="pl-8 w-full"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <Button variant="outline">Filtres</Button>
+        <Button variant="outline" className="w-full sm:w-auto">
+          Filtres
+        </Button>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Liste des patients</CardTitle>
-          <CardDescription>Tous vos patients enregistrés</CardDescription>
+          <CardTitle className="text-lg sm:text-xl">
+            Liste des patients
+          </CardTitle>
+          <CardDescription className="text-sm">
+            Tous vos patients enregistrés
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="flex justify-center p-4">Chargement...</div>
           ) : filteredPatients.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-8 text-center">
-              <User className="h-12 w-12 text-gray-400 mb-4" />
+            <div className="flex flex-col items-center justify-center p-4 sm:p-8 text-center">
+              <User className="h-10 w-10 sm:h-12 sm:w-12 text-gray-400 mb-4" />
               {searchTerm ? (
-                <p className="text-muted-foreground">
+                <p className="text-sm sm:text-base text-muted-foreground">
                   Aucun patient ne correspond à votre recherche
                 </p>
               ) : (
                 <>
-                  <p className="font-medium mb-1">Aucun patient trouvé</p>
-                  <p className="text-muted-foreground mb-4">
+                  <p className="font-medium mb-1 text-sm sm:text-base">
+                    Aucun patient trouvé
+                  </p>
+                  <p className="text-sm text-muted-foreground mb-4">
                     Commencez par ajouter un patient à votre liste
                   </p>
-                  <Button onClick={handleAddPatient}>
+                  <Button
+                    onClick={handleAddPatient}
+                    className="w-full sm:w-auto"
+                  >
                     <Plus className="mr-2 h-4 w-4" />
                     Ajouter un patient
                   </Button>
@@ -225,69 +238,88 @@ export function PatientsPage() {
           ) : (
             <div className="space-y-4">
               {filteredPatients.map((patient) => (
-                <div key={patient.id} className="rounded-lg border p-4">
-                  <div className="flex items-center justify-between">
+                <div key={patient.id} className="rounded-lg border p-3 sm:p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                      <h3 className="font-medium">
+                      <h3 className="font-medium text-sm sm:text-base">
                         {patient.gender === "Madame" && "Mme "}
                         {patient.gender === "Monsieur" && "M. "}
                         {patient.lastName} {patient.firstName}
                       </h3>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-xs sm:text-sm text-muted-foreground">
                         ID: {patient.id.substring(0, 8)} • Né
                         {patient.gender === "Madame" ? "e" : ""} le{" "}
                         {formatBirthDate(patient.birthDate)}
                       </p>
                     </div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm">
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 sm:flex-none"
+                      >
                         <FileText className="h-4 w-4 mr-2" />
                         Dossier
-                      </Button>
-                      <Button variant="outline" size="sm">
-                        <Calendar className="h-4 w-4 mr-2" />
-                        RDV
-                      </Button>
-                      <Button variant="outline" size="sm">
-                        <Phone className="h-4 w-4 mr-2" />
-                        Contact
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleEditPatient(patient)}
+                        className="flex-1 sm:flex-none"
                       >
-                        <Pencil className="h-4 w-4 mr-2" />
-                        Modifier
+                        <Calendar className="h-4 w-4 mr-2" />
+                        RDV
                       </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="outline" size="sm">
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Supprimer
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>
-                              Supprimer le patient
-                            </AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Êtes-vous sûr de vouloir supprimer{" "}
-                              {patient.firstName} {patient.lastName} ? Cette
-                              action est irréversible.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Annuler</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleDeletePatient(patient.id)}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 sm:flex-none"
+                      >
+                        <Phone className="h-4 w-4 mr-2" />
+                        Appeler
+                      </Button>
+                      <div className="flex gap-2 w-full sm:w-auto">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 sm:flex-none"
+                          onClick={() => handleEditPatient(patient)}
+                        >
+                          <Pencil className="h-4 w-4 mr-2" />
+                          Modifier
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 sm:flex-none"
                             >
+                              <Trash2 className="h-4 w-4 mr-2" />
                               Supprimer
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>
+                                Confirmer la suppression
+                              </AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Êtes-vous sûr de vouloir supprimer ce patient ?
+                                Cette action est irréversible.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Annuler</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDeletePatient(patient.id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Supprimer
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -313,11 +345,11 @@ export function PatientsPage() {
 
       {/* Formulaire d'ajout/modification de patient */}
       <PatientForm
-        patient={selectedPatient}
         isOpen={isDialogOpen}
         onClose={() => setIsDialogOpen(false)}
         onSubmit={handleSubmitPatient}
         isSubmitting={isSubmitting}
+        patient={selectedPatient}
       />
     </div>
   );

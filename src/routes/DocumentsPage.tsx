@@ -6,7 +6,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsItem } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -59,6 +59,24 @@ const formSchema = z.object({
     .string()
     .min(1, { message: "Veuillez sélectionner un type de document" }),
 });
+
+// Créer un composant TabsTrigger personnalisé car il n'est pas exporté du module
+function TabsTrigger({
+  value,
+  children,
+}: {
+  value: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow"
+      data-state={value}
+    >
+      {children}
+    </button>
+  );
+}
 
 // Composant principal de la page Documents
 export function DocumentsPage() {
@@ -382,8 +400,8 @@ Date de naissance : ${birthDate}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsItem value="generation">Génération de documents</TabsItem>
-          <TabsItem value="archive">Documents archivés</TabsItem>
+          <TabsTrigger value="generation">Génération de documents</TabsTrigger>
+          <TabsTrigger value="archive">Documents archivés</TabsTrigger>
         </TabsList>
 
         <TabsContent value="generation" className="space-y-4">
@@ -545,8 +563,8 @@ Date de naissance : ${birthDate}
                       }
                     >
                       <TabsList className="grid w-full grid-cols-2">
-                        <TabsItem value="desktop">Ordinateur</TabsItem>
-                        <TabsItem value="mobile">Téléphone</TabsItem>
+                        <TabsTrigger value="desktop">Ordinateur</TabsTrigger>
+                        <TabsTrigger value="mobile">Téléphone</TabsTrigger>
                       </TabsList>
                       <TabsContent value="desktop">
                         {isProcessing && !transcript && (

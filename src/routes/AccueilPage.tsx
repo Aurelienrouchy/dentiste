@@ -1,20 +1,29 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useAuth } from '@/lib/firebase/auth-context';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { useAuth } from "@/lib/firebase/auth-context";
 
 export function AccueilPage() {
   const { currentUser } = useAuth();
-  
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Tableau de bord</h1>
-        <p className="text-muted-foreground">
-          Bienvenue, {currentUser?.displayName || currentUser?.email || 'Utilisateur'}
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+          Tableau de bord
+        </h1>
+        <p className="text-sm sm:text-base text-muted-foreground">
+          Bienvenue,{" "}
+          {currentUser?.displayName || currentUser?.email || "Utilisateur"}
         </p>
       </div>
-      
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
+
+      <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Patients</CardTitle>
             <svg
@@ -33,14 +42,14 @@ export function AccueilPage() {
             </svg>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0</div>
+            <div className="text-xl sm:text-2xl font-bold">0</div>
             <p className="text-xs text-muted-foreground">
               Patients enregistrés
             </p>
           </CardContent>
         </Card>
-        
-        <Card>
+
+        <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Documents</CardTitle>
             <svg
@@ -58,14 +67,12 @@ export function AccueilPage() {
             </svg>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0</div>
-            <p className="text-xs text-muted-foreground">
-              Documents stockés
-            </p>
+            <div className="text-xl sm:text-2xl font-bold">0</div>
+            <p className="text-xs text-muted-foreground">Documents stockés</p>
           </CardContent>
         </Card>
-        
-        <Card>
+
+        <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Rendez-vous</CardTitle>
             <svg
@@ -85,14 +92,12 @@ export function AccueilPage() {
             </svg>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0</div>
-            <p className="text-xs text-muted-foreground">
-              Rendez-vous à venir
-            </p>
+            <div className="text-xl sm:text-2xl font-bold">0</div>
+            <p className="text-xs text-muted-foreground">Rendez-vous à venir</p>
           </CardContent>
         </Card>
-        
-        <Card>
+
+        <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Contacts</CardTitle>
             <svg
@@ -109,39 +114,47 @@ export function AccueilPage() {
             </svg>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0</div>
+            <div className="text-xl sm:text-2xl font-bold">0</div>
             <p className="text-xs text-muted-foreground">
               Contacts enregistrés
             </p>
           </CardContent>
         </Card>
       </div>
-      
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4">
+
+      <div className="grid gap-4 grid-cols-1 lg:grid-cols-7">
+        <Card className="lg:col-span-4">
           <CardHeader>
-            <CardTitle>Activité récente</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-lg sm:text-xl">
+              Activité récente
+            </CardTitle>
+            <CardDescription className="text-sm">
               Aperçu des dernières activités
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">Aucune activité récente</p>
+            <p className="text-sm text-muted-foreground">
+              Aucune activité récente
+            </p>
           </CardContent>
         </Card>
-        
-        <Card className="col-span-3">
+
+        <Card className="lg:col-span-3">
           <CardHeader>
-            <CardTitle>Rendez-vous à venir</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-lg sm:text-xl">
+              Rendez-vous à venir
+            </CardTitle>
+            <CardDescription className="text-sm">
               Vos prochains rendez-vous
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">Aucun rendez-vous à venir</p>
+            <p className="text-sm text-muted-foreground">
+              Aucun rendez-vous à venir
+            </p>
           </CardContent>
         </Card>
       </div>
     </div>
   );
-} 
+}

@@ -127,16 +127,54 @@ class AIService {
     try {
       console.log("Starting speech recognition...");
 
+      // Vérifier si le navigateur supporte getUserMedia
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        console.error("getUserMedia n'est pas supporté par ce navigateur");
+        throw new Error(
+          "Votre navigateur ne supporte pas l'enregistrement audio"
+        );
+      }
+
       // Demander l'accès au microphone
+      console.log("Demande d'accès au microphone...");
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log("Accès au microphone accordé");
+
+      // Vérifier les types MIME supportés
+      const mimeTypes = MediaRecorder.isTypeSupported("audio/webm")
+        ? "audio/webm"
+        : MediaRecorder.isTypeSupported("audio/ogg")
+        ? "audio/ogg"
+        : "audio/mp4";
+
+      console.log("Type MIME utilisé:", mimeTypes);
 
       // Créer un MediaRecorder avec les options audio optimisées pour la reconnaissance vocale
-      const options = { mimeType: "audio/webm" };
+      const options = { mimeType: mimeTypes };
       const mediaRecorder = new MediaRecorder(stream, options);
+      console.log("MediaRecorder créé avec succès");
 
       return mediaRecorder;
     } catch (error) {
-      console.error("Error starting speech recognition:", error);
+      console.error(
+        "Erreur détaillée lors du démarrage de la reconnaissance vocale:",
+        error
+      );
+      if (error instanceof Error) {
+        if (error.name === "NotAllowedError") {
+          throw new Error(
+            "L'accès au microphone a été refusé. Veuillez autoriser l'accès dans les paramètres de votre navigateur."
+          );
+        } else if (error.name === "NotFoundError") {
+          throw new Error(
+            "Aucun microphone n'a été trouvé. Veuillez connecter un microphone et réessayer."
+          );
+        } else if (error.name === "NotReadableError") {
+          throw new Error(
+            "Le microphone est déjà utilisé par une autre application. Veuillez fermer cette application et réessayer."
+          );
+        }
+      }
       throw new Error(
         "Impossible d'accéder au microphone. Veuillez vérifier les permissions."
       );
@@ -457,6 +495,7 @@ export function useAIService() {
   // Démarrer l'enregistrement audio
   const startRecording = async (): Promise<void> => {
     try {
+      console.log("Démarrage de l'enregistrement...");
       setIsRecording(true);
       audioChunksRef.current = [];
 
@@ -466,26 +505,47 @@ export function useAIService() {
       // Stocker le stream pour pouvoir le nettoyer plus tard
       if (mediaRecorder.stream) {
         streamRef.current = mediaRecorder.stream;
+        console.log("Stream audio stocké");
       }
 
       // Configurer les écouteurs d'événements
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
+          console.log("Données audio reçues:", event.data.size, "bytes");
           audioChunksRef.current.push(event.data);
         }
       };
 
+      // Gérer les erreurs du MediaRecorder
+      mediaRecorder.onerror = (event) => {
+        console.error("Erreur du MediaRecorder:", event);
+        setError("Une erreur est survenue pendant l'enregistrement");
+        setIsRecording(false);
+      };
+
       // Démarrer l'enregistrement
       mediaRecorder.start(1000); // Collecter les données toutes les secondes
-      console.log("Recording started");
+      console.log("Enregistrement démarré avec succès");
     } catch (err: unknown) {
+      console.error(
+        "Erreur détaillée lors du démarrage de l'enregistrement:",
+        err
+      );
       setError(
         err instanceof Error
           ? err.message
           : "Impossible de démarrer l'enregistrement"
       );
       setIsRecording(false);
-      console.error(err);
+
+      // Nettoyer les ressources en cas d'erreur
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      }
+      if (mediaRecorderRef.current) {
+        mediaRecorderRef.current = null;
+      }
     }
   };
 
