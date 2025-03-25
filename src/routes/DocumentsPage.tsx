@@ -87,9 +87,9 @@ export function DocumentsPage() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [isLoadingPatients, setIsLoadingPatients] = useState(true);
   const [documentTemplate, setDocumentTemplate] = useState("");
-  const [recordMode, setRecordMode] = useState<"desktop" | "mobile">("desktop");
   const [transcript, setTranscript] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [showQRCode, setShowQRCode] = useState(false);
 
   // Utiliser les hooks personnalisés
   const { user } = useAuth();
@@ -271,13 +271,10 @@ Date de naissance : ${birthDate}
 
     if (isRecording) {
       // Toujours utiliser Whisper pour la transcription
-      await stopRecording("whisper");
-
-      // Après la transcription, mettre à jour le template avec la transcription réelle
-      if (transcript) {
-        setDocumentTemplate((prevTemplate) =>
-          prevTemplate.replace(/\[transcription\]/g, transcript)
-        );
+      const audioBlob = await stopRecording("whisper");
+      if (audioBlob) {
+        const result = await transcribeAudio(audioBlob, "whisper");
+        setTranscript(result.text);
       }
     } else {
       await startRecording();
@@ -367,14 +364,16 @@ Date de naissance : ${birthDate}
     documentsService.setSelectedDocument(null);
   };
 
-  // Mettre à jour le template quand la transcription change
+  // Mettre à jour le document généré quand le template change
   useEffect(() => {
     if (transcript && documentTemplate.includes("[transcription]")) {
-      setDocumentTemplate((prevTemplate) =>
-        prevTemplate.replace(/\[transcription\]/g, transcript)
+      const updatedTemplate = documentTemplate.replace(
+        /\[transcription\]/g,
+        transcript
       );
+      setGeneratedDocument(updatedTemplate);
     }
-  }, [transcript]);
+  }, [documentTemplate, transcript]);
 
   const handleMobileAudioReceived = async (audioBlob: Blob) => {
     try {
@@ -532,7 +531,7 @@ Date de naissance : ${birthDate}
                     <div className="flex justify-between items-center">
                       <h4 className="font-medium">Dictée vocale</h4>
                       <div className="flex items-center gap-2">
-                        {isRecording && recordMode === "desktop" && (
+                        {isRecording && (
                           <Badge
                             variant="outline"
                             className="bg-red-50 text-red-600"
@@ -540,54 +539,58 @@ Date de naissance : ${birthDate}
                             {formatTime(recordingTime)}
                           </Badge>
                         )}
-                        {recordMode === "desktop" && (
-                          <Button
-                            variant={isRecording ? "destructive" : "default"}
-                            size="sm"
-                            onClick={handleDictation}
-                            disabled={
-                              isProcessing || form.getValues("patientId") === ""
-                            }
-                          >
-                            <Mic className="h-4 w-4 mr-2" />
-                            {isRecording ? "Arrêter" : "Dicter"}
-                          </Button>
-                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowQRCode(true)}
+                          disabled={
+                            isProcessing || form.getValues("patientId") === ""
+                          }
+                        >
+                          <FileSymlink className="h-4 w-4 mr-2" />
+                          Enregistrer sur mobile
+                        </Button>
+                        <Button
+                          variant={isRecording ? "destructive" : "default"}
+                          size="sm"
+                          onClick={handleDictation}
+                          disabled={
+                            isProcessing || form.getValues("patientId") === ""
+                          }
+                        >
+                          <Mic className="h-4 w-4 mr-2" />
+                          {isRecording ? "Arrêter" : "Dicter"}
+                        </Button>
                       </div>
                     </div>
 
-                    <Tabs
-                      value={recordMode}
-                      onValueChange={(value) =>
-                        setRecordMode(value as "desktop" | "mobile")
-                      }
-                    >
-                      <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="desktop">Ordinateur</TabsTrigger>
-                        <TabsTrigger value="mobile">Téléphone</TabsTrigger>
-                      </TabsList>
-                      <TabsContent value="desktop">
-                        {isProcessing && !transcript && (
-                          <div className="flex items-center justify-center p-4">
-                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                            <span className="ml-2 text-sm text-muted-foreground">
-                              Traitement en cours...
-                            </span>
-                          </div>
-                        )}
-                      </TabsContent>
-                      <TabsContent value="mobile">
-                        <MobileRecordQRCode
-                          onAudioReceived={handleMobileAudioReceived}
-                        />
-                      </TabsContent>
-                    </Tabs>
+                    {isProcessing && !transcript && (
+                      <div className="flex items-center justify-center p-4">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                        <span className="ml-2 text-sm text-muted-foreground">
+                          Traitement en cours...
+                        </span>
+                      </div>
+                    )}
 
                     {transcript && (
                       <div className="mt-4">
                         <h4 className="font-medium mb-2">Transcription</h4>
                         <div className="border rounded-md p-3 bg-muted/50">
-                          <p className="text-sm">{transcript}</p>
+                          <Textarea
+                            className="min-h-[100px] text-sm"
+                            value={transcript}
+                            onChange={(e) => {
+                              setTranscript(e.target.value);
+                              // Mettre à jour le document généré en temps réel
+                              const updatedTemplate = documentTemplate.replace(
+                                /\[transcription\]/g,
+                                e.target.value
+                              );
+                              setGeneratedDocument(updatedTemplate);
+                            }}
+                            placeholder="Transcription..."
+                          />
                         </div>
                         <div className="flex justify-end mt-2">
                           <Button
@@ -607,38 +610,6 @@ Date de naissance : ${birthDate}
                           >
                             <FileText className="h-3.5 w-3.5 mr-1" />
                             Générer
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-
-                    {transcript && (
-                      <div className="mt-4">
-                        <h4 className="font-medium mb-2">
-                          Template du document
-                        </h4>
-                        <div className="border rounded-md p-3 bg-white">
-                          <Textarea
-                            className="min-h-[250px] font-mono text-sm"
-                            value={documentTemplate}
-                            onChange={(
-                              e: React.ChangeEvent<HTMLTextAreaElement>
-                            ) => setDocumentTemplate(e.target.value)}
-                            placeholder="Template du document..."
-                          />
-                        </div>
-                        <div className="flex justify-between mt-2">
-                          <p className="text-xs text-muted-foreground">
-                            Vous pouvez modifier ce template selon vos besoins.
-                          </p>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={updateDocumentTemplate}
-                            title="Réinitialiser le template avec le marqueur [transcription]"
-                          >
-                            <RefreshCw className="h-3.5 w-3.5 mr-1" />
-                            Réinitialiser template
                           </Button>
                         </div>
                       </div>
@@ -679,6 +650,19 @@ Date de naissance : ${birthDate}
               </Form>
             </CardContent>
           </Card>
+
+          <Dialog open={showQRCode} onOpenChange={setShowQRCode}>
+            <DialogContent className="sm:max-w-[425px] bg-white">
+              <DialogHeader>
+                <DialogTitle>Enregistrer sur mobile</DialogTitle>
+              </DialogHeader>
+              <div className="flex flex-col items-center space-y-4 py-4">
+                <MobileRecordQRCode
+                  onAudioReceived={handleMobileAudioReceived}
+                />
+              </div>
+            </DialogContent>
+          </Dialog>
 
           <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-4">
             <p className="text-sm text-blue-700">
