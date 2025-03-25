@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Mic, StopCircle } from "lucide-react";
 import { useAIService } from "@/lib/services/ai.service";
 import { useSearchParams } from "react-router-dom";
+import { aiService } from "@/lib/services/ai.service";
 
 export function MobileRecordPage() {
   const [isRecording, setIsRecording] = useState(false);
@@ -32,7 +33,10 @@ export function MobileRecordPage() {
   const handleRecord = async () => {
     try {
       if (isRecording) {
-        await stopRecording("whisper");
+        const audioBlob = await stopRecording("whisper");
+        if (audioBlob && sessionId) {
+          aiService.storeMobileAudio(sessionId, audioBlob);
+        }
         setIsRecording(false);
       } else {
         await startRecording();

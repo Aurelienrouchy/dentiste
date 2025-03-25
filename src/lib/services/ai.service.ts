@@ -490,7 +490,9 @@ export function useAIService() {
   };
 
   // Arrêter l'enregistrement et transcrire
-  const stopRecording = async (modelId: string = "whisper"): Promise<void> => {
+  const stopRecording = async (
+    modelId: string = "whisper"
+  ): Promise<Blob | null> => {
     try {
       if (!mediaRecorderRef.current) {
         throw new Error("Aucun enregistrement en cours");
@@ -533,12 +535,14 @@ export function useAIService() {
       setTranscript(result.text);
 
       setIsProcessing(false);
+      return audioBlob;
     } catch (err: unknown) {
       setError(
         err instanceof Error ? err.message : "Erreur lors de la transcription"
       );
       setIsProcessing(false);
       console.error(err);
+      return null;
     }
   };
 
