@@ -15,6 +15,7 @@ import { ResetPasswordPage } from "./ResetPasswordPage";
 import IntegrationsPage from "./IntegrationsPage";
 import { TemplatesPage } from "./TemplatesPage";
 import { useAuth } from "@/lib/firebase/auth-context";
+import { MobileRecordPage } from "./MobileRecordPage";
 
 // Route racine
 const rootRoute = createRootRoute({
@@ -111,6 +112,12 @@ export const templatesRoute = createRoute({
   component: TemplatesPage,
 });
 
+export const mobileRecordRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: "/mobile-record",
+  component: MobileRecordPage,
+});
+
 // Création du routeur
 const routeTree = rootRoute.addChildren([
   loginRoute,
@@ -123,6 +130,7 @@ const routeTree = rootRoute.addChildren([
     contactsRoute,
     integrationsRoute,
     templatesRoute,
+    mobileRecordRoute,
   ]),
 ]);
 
