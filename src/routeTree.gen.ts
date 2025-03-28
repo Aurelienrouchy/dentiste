@@ -15,18 +15,8 @@ import { Route as ResetPasswordImport } from './routes/reset-password'
 import { Route as RegisterImport } from './routes/register'
 import { Route as MobileRecordImport } from './routes/mobile-record'
 import { Route as LoginImport } from './routes/login'
+import { Route as AccueilImport } from './routes/accueil'
 import { Route as protectedImport } from './routes/__protected'
-import { Route as TemplatesPageImport } from './routes/TemplatesPage'
-import { Route as ResetPasswordPageImport } from './routes/ResetPasswordPage'
-import { Route as RegisterPageImport } from './routes/RegisterPage'
-import { Route as PatientsPageImport } from './routes/PatientsPage'
-import { Route as MobileRecordPageImport } from './routes/MobileRecordPage'
-import { Route as LoginPageImport } from './routes/LoginPage'
-import { Route as IntegrationsPageImport } from './routes/IntegrationsPage'
-import { Route as DocumentsPageImport } from './routes/DocumentsPage'
-import { Route as ContactsPageImport } from './routes/ContactsPage'
-import { Route as AdminPageImport } from './routes/AdminPage'
-import { Route as AccueilPageImport } from './routes/AccueilPage'
 import { Route as protectedIndexImport } from './routes/__protected/index'
 import { Route as protectedTemplatesImport } from './routes/__protected/templates'
 import { Route as protectedPatientsImport } from './routes/__protected/patients'
@@ -60,74 +50,14 @@ const LoginRoute = LoginImport.update({
   getParentRoute: () => rootRoute,
 } as any)
 
+const AccueilRoute = AccueilImport.update({
+  id: '/accueil',
+  path: '/accueil',
+  getParentRoute: () => rootRoute,
+} as any)
+
 const protectedRoute = protectedImport.update({
   id: '/__protected',
-  getParentRoute: () => rootRoute,
-} as any)
-
-const TemplatesPageRoute = TemplatesPageImport.update({
-  id: '/TemplatesPage',
-  path: '/TemplatesPage',
-  getParentRoute: () => rootRoute,
-} as any)
-
-const ResetPasswordPageRoute = ResetPasswordPageImport.update({
-  id: '/ResetPasswordPage',
-  path: '/ResetPasswordPage',
-  getParentRoute: () => rootRoute,
-} as any)
-
-const RegisterPageRoute = RegisterPageImport.update({
-  id: '/RegisterPage',
-  path: '/RegisterPage',
-  getParentRoute: () => rootRoute,
-} as any)
-
-const PatientsPageRoute = PatientsPageImport.update({
-  id: '/PatientsPage',
-  path: '/PatientsPage',
-  getParentRoute: () => rootRoute,
-} as any)
-
-const MobileRecordPageRoute = MobileRecordPageImport.update({
-  id: '/MobileRecordPage',
-  path: '/MobileRecordPage',
-  getParentRoute: () => rootRoute,
-} as any)
-
-const LoginPageRoute = LoginPageImport.update({
-  id: '/LoginPage',
-  path: '/LoginPage',
-  getParentRoute: () => rootRoute,
-} as any)
-
-const IntegrationsPageRoute = IntegrationsPageImport.update({
-  id: '/IntegrationsPage',
-  path: '/IntegrationsPage',
-  getParentRoute: () => rootRoute,
-} as any)
-
-const DocumentsPageRoute = DocumentsPageImport.update({
-  id: '/DocumentsPage',
-  path: '/DocumentsPage',
-  getParentRoute: () => rootRoute,
-} as any)
-
-const ContactsPageRoute = ContactsPageImport.update({
-  id: '/ContactsPage',
-  path: '/ContactsPage',
-  getParentRoute: () => rootRoute,
-} as any)
-
-const AdminPageRoute = AdminPageImport.update({
-  id: '/AdminPage',
-  path: '/AdminPage',
-  getParentRoute: () => rootRoute,
-} as any)
-
-const AccueilPageRoute = AccueilPageImport.update({
-  id: '/AccueilPage',
-  path: '/AccueilPage',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -171,88 +101,18 @@ const protectedContactsRoute = protectedContactsImport.update({
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/AccueilPage': {
-      id: '/AccueilPage'
-      path: '/AccueilPage'
-      fullPath: '/AccueilPage'
-      preLoaderRoute: typeof AccueilPageImport
-      parentRoute: typeof rootRoute
-    }
-    '/AdminPage': {
-      id: '/AdminPage'
-      path: '/AdminPage'
-      fullPath: '/AdminPage'
-      preLoaderRoute: typeof AdminPageImport
-      parentRoute: typeof rootRoute
-    }
-    '/ContactsPage': {
-      id: '/ContactsPage'
-      path: '/ContactsPage'
-      fullPath: '/ContactsPage'
-      preLoaderRoute: typeof ContactsPageImport
-      parentRoute: typeof rootRoute
-    }
-    '/DocumentsPage': {
-      id: '/DocumentsPage'
-      path: '/DocumentsPage'
-      fullPath: '/DocumentsPage'
-      preLoaderRoute: typeof DocumentsPageImport
-      parentRoute: typeof rootRoute
-    }
-    '/IntegrationsPage': {
-      id: '/IntegrationsPage'
-      path: '/IntegrationsPage'
-      fullPath: '/IntegrationsPage'
-      preLoaderRoute: typeof IntegrationsPageImport
-      parentRoute: typeof rootRoute
-    }
-    '/LoginPage': {
-      id: '/LoginPage'
-      path: '/LoginPage'
-      fullPath: '/LoginPage'
-      preLoaderRoute: typeof LoginPageImport
-      parentRoute: typeof rootRoute
-    }
-    '/MobileRecordPage': {
-      id: '/MobileRecordPage'
-      path: '/MobileRecordPage'
-      fullPath: '/MobileRecordPage'
-      preLoaderRoute: typeof MobileRecordPageImport
-      parentRoute: typeof rootRoute
-    }
-    '/PatientsPage': {
-      id: '/PatientsPage'
-      path: '/PatientsPage'
-      fullPath: '/PatientsPage'
-      preLoaderRoute: typeof PatientsPageImport
-      parentRoute: typeof rootRoute
-    }
-    '/RegisterPage': {
-      id: '/RegisterPage'
-      path: '/RegisterPage'
-      fullPath: '/RegisterPage'
-      preLoaderRoute: typeof RegisterPageImport
-      parentRoute: typeof rootRoute
-    }
-    '/ResetPasswordPage': {
-      id: '/ResetPasswordPage'
-      path: '/ResetPasswordPage'
-      fullPath: '/ResetPasswordPage'
-      preLoaderRoute: typeof ResetPasswordPageImport
-      parentRoute: typeof rootRoute
-    }
-    '/TemplatesPage': {
-      id: '/TemplatesPage'
-      path: '/TemplatesPage'
-      fullPath: '/TemplatesPage'
-      preLoaderRoute: typeof TemplatesPageImport
-      parentRoute: typeof rootRoute
-    }
     '/__protected': {
       id: '/__protected'
       path: ''
       fullPath: ''
       preLoaderRoute: typeof protectedImport
+      parentRoute: typeof rootRoute
+    }
+    '/accueil': {
+      id: '/accueil'
+      path: '/accueil'
+      fullPath: '/accueil'
+      preLoaderRoute: typeof AccueilImport
       parentRoute: typeof rootRoute
     }
     '/login': {
@@ -353,18 +213,8 @@ const protectedRouteWithChildren = protectedRoute._addFileChildren(
 )
 
 export interface FileRoutesByFullPath {
-  '/AccueilPage': typeof AccueilPageRoute
-  '/AdminPage': typeof AdminPageRoute
-  '/ContactsPage': typeof ContactsPageRoute
-  '/DocumentsPage': typeof DocumentsPageRoute
-  '/IntegrationsPage': typeof IntegrationsPageRoute
-  '/LoginPage': typeof LoginPageRoute
-  '/MobileRecordPage': typeof MobileRecordPageRoute
-  '/PatientsPage': typeof PatientsPageRoute
-  '/RegisterPage': typeof RegisterPageRoute
-  '/ResetPasswordPage': typeof ResetPasswordPageRoute
-  '/TemplatesPage': typeof TemplatesPageRoute
   '': typeof protectedRouteWithChildren
+  '/accueil': typeof AccueilRoute
   '/login': typeof LoginRoute
   '/mobile-record': typeof MobileRecordRoute
   '/register': typeof RegisterRoute
@@ -378,17 +228,7 @@ export interface FileRoutesByFullPath {
 }
 
 export interface FileRoutesByTo {
-  '/AccueilPage': typeof AccueilPageRoute
-  '/AdminPage': typeof AdminPageRoute
-  '/ContactsPage': typeof ContactsPageRoute
-  '/DocumentsPage': typeof DocumentsPageRoute
-  '/IntegrationsPage': typeof IntegrationsPageRoute
-  '/LoginPage': typeof LoginPageRoute
-  '/MobileRecordPage': typeof MobileRecordPageRoute
-  '/PatientsPage': typeof PatientsPageRoute
-  '/RegisterPage': typeof RegisterPageRoute
-  '/ResetPasswordPage': typeof ResetPasswordPageRoute
-  '/TemplatesPage': typeof TemplatesPageRoute
+  '/accueil': typeof AccueilRoute
   '/login': typeof LoginRoute
   '/mobile-record': typeof MobileRecordRoute
   '/register': typeof RegisterRoute
@@ -403,18 +243,8 @@ export interface FileRoutesByTo {
 
 export interface FileRoutesById {
   __root__: typeof rootRoute
-  '/AccueilPage': typeof AccueilPageRoute
-  '/AdminPage': typeof AdminPageRoute
-  '/ContactsPage': typeof ContactsPageRoute
-  '/DocumentsPage': typeof DocumentsPageRoute
-  '/IntegrationsPage': typeof IntegrationsPageRoute
-  '/LoginPage': typeof LoginPageRoute
-  '/MobileRecordPage': typeof MobileRecordPageRoute
-  '/PatientsPage': typeof PatientsPageRoute
-  '/RegisterPage': typeof RegisterPageRoute
-  '/ResetPasswordPage': typeof ResetPasswordPageRoute
-  '/TemplatesPage': typeof TemplatesPageRoute
   '/__protected': typeof protectedRouteWithChildren
+  '/accueil': typeof AccueilRoute
   '/login': typeof LoginRoute
   '/mobile-record': typeof MobileRecordRoute
   '/register': typeof RegisterRoute
@@ -430,18 +260,8 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/AccueilPage'
-    | '/AdminPage'
-    | '/ContactsPage'
-    | '/DocumentsPage'
-    | '/IntegrationsPage'
-    | '/LoginPage'
-    | '/MobileRecordPage'
-    | '/PatientsPage'
-    | '/RegisterPage'
-    | '/ResetPasswordPage'
-    | '/TemplatesPage'
     | ''
+    | '/accueil'
     | '/login'
     | '/mobile-record'
     | '/register'
@@ -454,17 +274,7 @@ export interface FileRouteTypes {
     | '/'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/AccueilPage'
-    | '/AdminPage'
-    | '/ContactsPage'
-    | '/DocumentsPage'
-    | '/IntegrationsPage'
-    | '/LoginPage'
-    | '/MobileRecordPage'
-    | '/PatientsPage'
-    | '/RegisterPage'
-    | '/ResetPasswordPage'
-    | '/TemplatesPage'
+    | '/accueil'
     | '/login'
     | '/mobile-record'
     | '/register'
@@ -477,18 +287,8 @@ export interface FileRouteTypes {
     | '/'
   id:
     | '__root__'
-    | '/AccueilPage'
-    | '/AdminPage'
-    | '/ContactsPage'
-    | '/DocumentsPage'
-    | '/IntegrationsPage'
-    | '/LoginPage'
-    | '/MobileRecordPage'
-    | '/PatientsPage'
-    | '/RegisterPage'
-    | '/ResetPasswordPage'
-    | '/TemplatesPage'
     | '/__protected'
+    | '/accueil'
     | '/login'
     | '/mobile-record'
     | '/register'
@@ -503,18 +303,8 @@ export interface FileRouteTypes {
 }
 
 export interface RootRouteChildren {
-  AccueilPageRoute: typeof AccueilPageRoute
-  AdminPageRoute: typeof AdminPageRoute
-  ContactsPageRoute: typeof ContactsPageRoute
-  DocumentsPageRoute: typeof DocumentsPageRoute
-  IntegrationsPageRoute: typeof IntegrationsPageRoute
-  LoginPageRoute: typeof LoginPageRoute
-  MobileRecordPageRoute: typeof MobileRecordPageRoute
-  PatientsPageRoute: typeof PatientsPageRoute
-  RegisterPageRoute: typeof RegisterPageRoute
-  ResetPasswordPageRoute: typeof ResetPasswordPageRoute
-  TemplatesPageRoute: typeof TemplatesPageRoute
   protectedRoute: typeof protectedRouteWithChildren
+  AccueilRoute: typeof AccueilRoute
   LoginRoute: typeof LoginRoute
   MobileRecordRoute: typeof MobileRecordRoute
   RegisterRoute: typeof RegisterRoute
@@ -522,18 +312,8 @@ export interface RootRouteChildren {
 }
 
 const rootRouteChildren: RootRouteChildren = {
-  AccueilPageRoute: AccueilPageRoute,
-  AdminPageRoute: AdminPageRoute,
-  ContactsPageRoute: ContactsPageRoute,
-  DocumentsPageRoute: DocumentsPageRoute,
-  IntegrationsPageRoute: IntegrationsPageRoute,
-  LoginPageRoute: LoginPageRoute,
-  MobileRecordPageRoute: MobileRecordPageRoute,
-  PatientsPageRoute: PatientsPageRoute,
-  RegisterPageRoute: RegisterPageRoute,
-  ResetPasswordPageRoute: ResetPasswordPageRoute,
-  TemplatesPageRoute: TemplatesPageRoute,
   protectedRoute: protectedRouteWithChildren,
+  AccueilRoute: AccueilRoute,
   LoginRoute: LoginRoute,
   MobileRecordRoute: MobileRecordRoute,
   RegisterRoute: RegisterRoute,
@@ -550,56 +330,13 @@ export const routeTree = rootRoute
     "__root__": {
       "filePath": "__root.tsx",
       "children": [
-        "/AccueilPage",
-        "/AdminPage",
-        "/ContactsPage",
-        "/DocumentsPage",
-        "/IntegrationsPage",
-        "/LoginPage",
-        "/MobileRecordPage",
-        "/PatientsPage",
-        "/RegisterPage",
-        "/ResetPasswordPage",
-        "/TemplatesPage",
         "/__protected",
+        "/accueil",
         "/login",
         "/mobile-record",
         "/register",
         "/reset-password"
       ]
-    },
-    "/AccueilPage": {
-      "filePath": "AccueilPage.tsx"
-    },
-    "/AdminPage": {
-      "filePath": "AdminPage.tsx"
-    },
-    "/ContactsPage": {
-      "filePath": "ContactsPage.tsx"
-    },
-    "/DocumentsPage": {
-      "filePath": "DocumentsPage.tsx"
-    },
-    "/IntegrationsPage": {
-      "filePath": "IntegrationsPage.tsx"
-    },
-    "/LoginPage": {
-      "filePath": "LoginPage.tsx"
-    },
-    "/MobileRecordPage": {
-      "filePath": "MobileRecordPage.tsx"
-    },
-    "/PatientsPage": {
-      "filePath": "PatientsPage.tsx"
-    },
-    "/RegisterPage": {
-      "filePath": "RegisterPage.tsx"
-    },
-    "/ResetPasswordPage": {
-      "filePath": "ResetPasswordPage.tsx"
-    },
-    "/TemplatesPage": {
-      "filePath": "TemplatesPage.tsx"
     },
     "/__protected": {
       "filePath": "__protected.tsx",
@@ -611,6 +348,9 @@ export const routeTree = rootRoute
         "/__protected/templates",
         "/__protected/"
       ]
+    },
+    "/accueil": {
+      "filePath": "accueil.tsx"
     },
     "/login": {
       "filePath": "login.tsx"
