@@ -1,43 +1,34 @@
-# Dentiste - Dashboard pour Cabinet Dentaire
+# Dentiste App - Transfert Audio Mobile-Ordinateur
 
-Une application de gestion pour cabinet dentaire avec authentification par email et un tableau de bord complet.
+Cette application permet d'enregistrer de l'audio sur un appareil mobile et de le transférer automatiquement vers un ordinateur via Firebase Storage.
 
-## Technologies utilisées
+## Comment ça fonctionne
 
-- React 19
-- TypeScript
-- Vite
-- TanStack Router pour la navigation
-- TanStack Query pour la gestion des données
-- Firebase pour l'authentification et la base de données
-- Shadcn UI pour les composants d'interface
-- Tailwind CSS pour le styling
+1. **Sur l'ordinateur** :
 
-## Fonctionnalités
+   - L'application génère un QR code contenant un identifiant de session unique
+   - Le QR code pointe vers une URL spécifique de l'application
+   - L'ordinateur commence à vérifier périodiquement si un enregistrement audio est disponible
 
-- Authentification par email
-- Tableau de bord avec statistiques
-- Gestion des documents
-- Gestion des patients
-- Gestion des contacts professionnels
+2. **Sur le mobile** :
 
-## Installation
+   - L'utilisateur scanne le QR code, ce qui ouvre la page d'enregistrement
+   - L'utilisateur enregistre l'audio
+   - Après l'arrêt de l'enregistrement, l'audio est automatiquement téléchargé sur Firebase Storage
 
-1. Clonez ce dépôt
-2. Installez les dépendances avec `npm install`
-3. Créez un projet Firebase et configurez les variables d'environnement
-4. Copiez le fichier `.env.example` en `.env.local` et remplissez les variables Firebase
-5. Lancez l'application en développement avec `npm run dev`
+3. **Transfert automatique** :
+   - Firebase Storage stocke temporairement l'enregistrement audio
+   - L'ordinateur détecte que l'enregistrement est disponible et le télécharge
+   - L'audio est alors prêt à être utilisé sur l'ordinateur
 
 ## Configuration Firebase
 
-Pour configurer Firebase, vous devez créer un projet sur la [console Firebase](https://console.firebase.google.com/) et activer:
+L'application utilise Firebase Storage pour le transfert des fichiers audio. Pour configurer votre propre projet Firebase :
 
-- Authentication (Email/Password)
-- Firestore Database
-- Storage
-
-Ensuite, ajoutez les variables d'environnement dans votre fichier `.env.local`:
+1. Créez un projet sur [Firebase Console](https://console.firebase.google.com/)
+2. Activez Firebase Storage
+3. Obtenez les clés d'API de votre projet
+4. Créez un fichier `.env` à la racine du projet avec les variables suivantes :
 
 ```
 VITE_FIREBASE_API_KEY=your-api-key
@@ -48,25 +39,21 @@ VITE_FIREBASE_MESSAGING_SENDER_ID=your-messaging-sender-id
 VITE_FIREBASE_APP_ID=your-app-id
 ```
 
-## Structure du projet
+## Avantages de cette approche
 
-```
-src/
-  ├── components/       # Composants React
-  │   ├── auth/         # Composants d'authentification
-  │   ├── dashboard/    # Composants du tableau de bord
-  │   ├── layout/       # Composants de mise en page
-  │   └── ui/           # Composants UI réutilisables (shadcn)
-  ├── hooks/            # Hooks personnalisés
-  ├── lib/              # Bibliothèques et configurations
-  │   └── firebase/     # Configuration Firebase
-  ├── routes/           # Pages et configuration des routes
-  └── index.css         # Styles globaux
-```
+- **Fiabilité** : Utilise Firebase Storage, un service cloud robuste pour le transfert de données
+- **Sécurité** : Les enregistrements sont stockés temporairement (24h maximum) et protégés par Firebase
+- **Compatibilité** : Fonctionne sur tous les navigateurs mobiles modernes, y compris Safari iOS
+- **Performances** : Les fichiers sont téléchargés et récupérés en arrière-plan, sans affecter l'expérience utilisateur
 
-## Scripts disponibles
+## Dépannage
 
-- `npm run dev` - Lance l'application en mode développement
-- `npm run build` - Compile l'application pour la production
-- `npm run lint` - Vérifie le code avec ESLint
-- `npm run preview` - Prévisualise la version de production localement
+Si vous rencontrez des problèmes :
+
+1. **L'enregistrement ne démarre pas** : Vérifiez que le navigateur mobile a accès au microphone
+2. **Le transfert échoue** : Vérifiez votre connexion internet et les paramètres Firebase
+3. **Le QR code ne fonctionne pas** : Assurez-vous que l'URL générée est accessible depuis le mobile
+
+## Maintenance
+
+Les enregistrements audio sont automatiquement supprimés après 24 heures pour libérer de l'espace de stockage.

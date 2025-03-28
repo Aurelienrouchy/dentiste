@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Loader2 } from "lucide-react";
-import { aiService } from "@/lib/services/ai.service";
+import { audioTransferService } from "@/lib/services/audioTransfer.service";
 
 interface MobileRecordQRCodeProps {
   onAudioReceived: (audioBlob: Blob) => void;
@@ -17,7 +17,7 @@ export function MobileRecordQRCode({
   const [pollingCount, setPollingCount] = useState(0);
 
   const generateSession = () => {
-    const newSessionId = aiService.createMobileSession();
+    const newSessionId = audioTransferService.createSession();
     setCurrentSessionId(newSessionId);
     setQrUrl(
       `${window.location.origin}/mobile-record?sessionId=${newSessionId}`
@@ -39,20 +39,21 @@ export function MobileRecordQRCode({
       setPollingCount((prev) => prev + 1);
 
       try {
-        // Essayer d'abord de récupérer depuis la mémoire
-        let audioBlob = aiService.getMobileAudio(currentSessionId);
+        // Vérifier si l'enregistrement est prêt
+        if (audioTransferService.isRecordingReady(currentSessionId)) {
+          // Télécharger l'enregistrement
+          const audioBlob =
+            await audioTransferService.downloadRecording(currentSessionId);
 
-        if (!audioBlob) {
-          // Si pas en mémoire, essayer depuis IndexedDB via notre nouvelle fonction
-          audioBlob =
-            (await aiService.getAudioFromIndexedDB?.(currentSessionId)) || null;
-        }
-
-        if (audioBlob) {
-          onAudioReceived(audioBlob);
-          setIsPolling(false);
-          generateSession(); // Générer une nouvelle session
-          return;
+          if (audioBlob) {
+            console.log(
+              "Audio téléchargé avec succès, notification au composant parent"
+            );
+            onAudioReceived(audioBlob);
+            setIsPolling(false);
+            generateSession(); // Générer une nouvelle session
+            return;
+          }
         }
 
         // Arrêter le polling après 180 essais (6 minutes)

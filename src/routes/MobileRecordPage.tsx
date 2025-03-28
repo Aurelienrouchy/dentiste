@@ -7,7 +7,7 @@ import {
   CheckCircle,
   Headphones,
 } from "lucide-react";
-import { aiService } from "@/lib/services/ai.service";
+import { audioTransferService } from "@/lib/services/audioTransfer.service";
 import { useSearch } from "@tanstack/react-router";
 import { Route as mobileRecordRoute } from "./mobile-record";
 
@@ -19,7 +19,7 @@ export function MobileRecordPage() {
   const [isTransferred, setIsTransferred] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isReady, setIsReady] = useState(false);
-  const [isSessionInitialized, setIsSessionInitialized] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   // MediaRecorder refs
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -32,29 +32,15 @@ export function MobileRecordPage() {
   const sessionId = search.sessionId as string | undefined;
   const sessionIdValue = sessionId || null;
 
-  // Force le service à initialiser ses données de session depuis localStorage
+  // Vérifier la validité de la session
   useEffect(() => {
-    console.log("MobileRecordPage - Initialisation du service AI");
-    // Créer une session temporaire pour forcer l'initialisation
-    const tempId = aiService.createMobileSession();
-    console.log("Session temporaire créée avec ID:", tempId);
-    setIsSessionInitialized(true);
-  }, []);
-
-  // Vérifier la validité de la session après l'initialisation
-  useEffect(() => {
-    if (!isSessionInitialized || !sessionIdValue) return;
-
-    console.log("Vérification de la validité de la session:", sessionIdValue);
-    const isValid = aiService.isValidMobileSession(sessionIdValue);
-    console.log("La session est-elle valide?", isValid);
-
-    if (!isValid) {
-      setError("Cette session a expiré ou n'est pas valide.");
+    if (!sessionIdValue) {
+      setError("Session invalide: identifiant manquant");
+      return;
     }
-  }, [sessionIdValue, isSessionInitialized]);
+  }, [sessionIdValue]);
 
-  // Cleanup des ressources
+  // Nettoyer les ressources lors du démontage
   useEffect(() => {
     return () => {
       cleanupAudioResources();
@@ -339,6 +325,35 @@ export function MobileRecordPage() {
     });
   };
 
+  // Télécharger le fichier audio sur Firebase Storage
+  const uploadAudioToFirebase = async (audioBlob: Blob): Promise<boolean> => {
+    if (!sessionIdValue) return false;
+
+    try {
+      setUploadProgress(10);
+
+      // Simuler une progression de téléchargement pour la UX
+      const progressInterval = setInterval(() => {
+        setUploadProgress((prev) => {
+          const newProgress = prev + Math.floor(Math.random() * 15);
+          return newProgress >= 90 ? 90 : newProgress;
+        });
+      }, 300);
+
+      // Télécharger l'audio sur Firebase Storage
+      await audioTransferService.uploadRecording(sessionIdValue, audioBlob);
+
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+
+      return true;
+    } catch (error) {
+      console.error("Erreur lors du téléchargement sur Firebase:", error);
+      setUploadProgress(0);
+      return false;
+    }
+  };
+
   // Gestionnaire principal pour démarrer/arrêter l'enregistrement
   const handleRecord = async () => {
     try {
@@ -358,8 +373,10 @@ export function MobileRecordPage() {
         const audioBlob = await stopRecording();
 
         if (audioBlob && sessionIdValue) {
-          // Stocker l'audio dans le service
-          const success = aiService.storeMobileAudio(sessionIdValue, audioBlob);
+          setSuccessMessage("Transfert de l'audio en cours...");
+
+          // Télécharger l'audio sur Firebase
+          const success = await uploadAudioToFirebase(audioBlob);
 
           if (success) {
             setSuccessMessage("Enregistrement réussi et transféré");
@@ -370,7 +387,7 @@ export function MobileRecordPage() {
               navigator.vibrate([100, 50, 100]);
             }
           } else {
-            setError("Impossible de stocker l'audio. Veuillez réessayer.");
+            setError("Erreur lors du transfert. Veuillez réessayer.");
           }
         } else {
           setError(
@@ -472,6 +489,18 @@ export function MobileRecordPage() {
         {successMessage && !isTransferred && (
           <div className="bg-green-50 text-green-600 p-4 rounded-md">
             {successMessage}
+
+            {uploadProgress > 0 && uploadProgress < 100 && (
+              <div className="mt-2">
+                <div className="w-full bg-gray-200 rounded-full h-2.5">
+                  <div
+                    className="bg-green-600 h-2.5 rounded-full transition-all duration-300"
+                    style={{ width: `${uploadProgress}%` }}
+                  ></div>
+                </div>
+                <p className="text-xs text-right mt-1">{uploadProgress}%</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -516,7 +545,7 @@ export function MobileRecordPage() {
           {isProcessing && (
             <div className="flex items-center space-x-2 text-muted-foreground">
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-              <span>Transfert en cours...</span>
+              <span>Traitement en cours...</span>
             </div>
           )}
         </div>
