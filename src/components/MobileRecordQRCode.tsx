@@ -131,34 +131,23 @@ export function MobileRecordQRCode({
       );
 
       try {
-        // Pour les 10 premières tentatives, afficher l'ID de session en entier
-        if (pollingCount <= 10) {
-          console.log(`Session actuelle: "${currentSessionId}"`);
+        // Toujours afficher l'ID de session pour faciliter le débogage
+        console.log(`Session actuelle: "${currentSessionId}"`);
+
+        // Afficher un message d'état adapté
+        if (pollingCount === 1) {
+          setStatusMessage("Recherche de l'enregistrement...");
+        } else if (pollingCount > 0 && pollingCount % 5 === 0) {
+          setStatusMessage(
+            `Recherche en cours... (${Math.floor(pollingCount / 5)}s)`
+          );
         }
 
-        // Méthode 1 : Vérifier via notre service
-        const isReady =
-          await audioTransferService.isRecordingReady(currentSessionId);
+        // Méthode 2 : Essayer d'abord la vérification directe dans Firebase Storage
+        // Cette approche est plus fiable car elle ne dépend pas du cache local
+        const directSuccess = await checkFirebaseStorage();
 
-        if (isReady) {
-          setStatusMessage("Enregistrement trouvé, téléchargement en cours...");
-          const audioBlob =
-            await audioTransferService.downloadRecording(currentSessionId);
-
-          if (audioBlob) {
-            console.log("Audio téléchargé avec succès via service");
-            onAudioReceived(audioBlob);
-            setIsPolling(false);
-            generateSession();
-            return;
-          }
-        }
-
-        // Méthode 2 : Vérifier directement dans Firebase Storage
-        setStatusMessage("Recherche directe dans Firebase Storage...");
-        const success = await checkFirebaseStorage();
-
-        if (success) {
+        if (directSuccess) {
           setStatusMessage("Fichier trouvé, téléchargement en cours...");
 
           try {
@@ -173,39 +162,66 @@ export function MobileRecordQRCode({
                 console.log("Audio téléchargé avec succès via Firebase direct");
                 onAudioReceived(blob);
                 setIsPolling(false);
-                generateSession();
+                setStatusMessage("Téléchargement réussi!");
+                setTimeout(() => {
+                  generateSession();
+                }, 1500);
                 return;
               } else {
                 console.error(
                   "Erreur lors du téléchargement:",
                   response.statusText
                 );
+                setStatusMessage(
+                  `Erreur HTTP: ${response.status} ${response.statusText}`
+                );
               }
             }
           } catch (error) {
             console.error("Erreur lors du téléchargement:", error);
+            const errorMessage =
+              error instanceof Error ? error.message : String(error);
+            setStatusMessage(`Erreur de téléchargement: ${errorMessage}`);
           }
         }
 
-        // Afficher un message d'état adapté
-        if (pollingCount > 0 && pollingCount % 10 === 0) {
-          setStatusMessage(
-            `Toujours en attente d'enregistrement... (${pollingCount / 10}s)`
+        // Méthode 1 : Vérifier via notre service (utilise le cache local)
+        const isReady = await audioTransferService.isRecordingReady(
+          currentSessionId!
+        );
+
+        if (isReady) {
+          setStatusMessage("Enregistrement trouvé, téléchargement en cours...");
+          const audioBlob = await audioTransferService.downloadRecording(
+            currentSessionId!
           );
+
+          if (audioBlob) {
+            console.log("Audio téléchargé avec succès via service");
+            onAudioReceived(audioBlob);
+            setIsPolling(false);
+            setStatusMessage("Téléchargement réussi!");
+            setTimeout(() => {
+              generateSession();
+            }, 1500);
+            return;
+          }
         }
 
         // Arrêter le polling après 300 essais (10 minutes)
         if (pollingCount > 300) {
           console.log("Polling arrêté après 300 tentatives");
-          setStatusMessage("Aucun enregistrement détecté après 10 minutes");
+          setStatusMessage(
+            "Aucun enregistrement détecté après 10 minutes. Cliquez sur 'Actualiser' pour réessayer."
+          );
           setIsPolling(false);
           return;
         }
       } catch (error) {
         console.error("Erreur lors du polling audio:", error);
-        setStatusMessage(
-          `Erreur: ${error instanceof Error ? error.message : "Erreur inconnue"}`
-        );
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        setStatusMessage(`Erreur: ${errorMessage}`);
       }
     };
 

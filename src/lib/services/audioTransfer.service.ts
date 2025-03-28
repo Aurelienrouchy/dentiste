@@ -376,37 +376,118 @@ class AudioTransferService {
         `Vérification directe du fichier pour la session ${sessionId}`
       );
 
-      // Essayer directement avec l'extension webm
-      try {
-        const fileRef = ref(storage, `recordings/${sessionId}.webm`);
-        const url = await getDownloadURL(fileRef);
-        console.log(`Fichier trouvé directement: ${url}`);
-        return url;
-      } catch (error) {
-        console.log(`Fichier webm non trouvé: ${sessionId}.webm`);
-        // Continuer avec les autres vérifications
+      // Essayer avec différentes extensions possibles
+      const extensions = [
+        "webm",
+        "mp3",
+        "mp4",
+        "wav",
+        "ogg",
+        "m4a",
+        "aac",
+        "opus",
+      ];
+
+      for (const ext of extensions) {
+        try {
+          const fileRef = ref(
+            storage,
+            `${this.STORAGE_PATH}/${sessionId}.${ext}`
+          );
+          const url = await getDownloadURL(fileRef);
+          console.log(`Fichier trouvé avec l'extension ${ext}: ${url}`);
+
+          // Créer ou mettre à jour la session locale
+          const session = this.sessions.get(sessionId) || {
+            id: sessionId,
+            timestamp: Date.now(),
+            status: "pending",
+          };
+
+          session.url = url;
+          session.status = "completed";
+          session.timestamp = Date.now();
+          this.sessions.set(sessionId, session);
+          this.saveSessionsToLocalStorage();
+
+          return url;
+        } catch (error: unknown) {
+          // Fichier non trouvé avec cette extension, continuer avec la suivante
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
+          console.log(
+            `Fichier non trouvé avec l'extension ${ext}: ${errorMessage}`
+          );
+        }
       }
 
-      // Lister tous les fichiers du dossier recordings
-      const folderRef = ref(storage, "recordings");
+      // Si on n'a pas trouvé par nom exact, lister tous les fichiers du dossier recordings
+      const folderRef = ref(storage, this.STORAGE_PATH);
       const result = await listAll(folderRef);
 
       console.log(
-        `${result.items.length} fichiers trouvés dans le dossier recordings`
+        `${result.items.length} fichiers trouvés dans le dossier ${this.STORAGE_PATH}`
       );
 
-      // Rechercher un fichier avec le nom exact, un préfixe ou une sous-chaîne
+      // Commencer par les correspondances exactes puis tenter des correspondances partielles
+      // 1. Rechercher un fichier qui commence par sessionId
       for (const item of result.items) {
         const fileName = item.name;
+        const fileNameWithoutExt = fileName.split(".")[0];
+
+        if (fileNameWithoutExt === sessionId) {
+          console.log(`Correspondance exacte trouvée: ${fileName}`);
+          const url = await getDownloadURL(item);
+
+          // Mettre à jour la session
+          const session = this.sessions.get(sessionId) || {
+            id: sessionId,
+            timestamp: Date.now(),
+            status: "pending",
+          };
+
+          session.url = url;
+          session.status = "completed";
+          session.timestamp = Date.now();
+          this.sessions.set(sessionId, session);
+          this.saveSessionsToLocalStorage();
+
+          return url;
+        }
+      }
+
+      // 2. Rechercher des correspondances partielles
+      for (const item of result.items) {
+        const fileName = item.name;
+        const fileNameWithoutExt = fileName.split(".")[0];
 
         if (
-          fileName === `${sessionId}.webm` ||
-          fileName.startsWith(sessionId) ||
-          fileName.includes(sessionId) ||
-          sessionId.includes(fileName.split(".")[0])
+          fileNameWithoutExt.startsWith(sessionId) ||
+          sessionId.startsWith(fileNameWithoutExt) ||
+          fileNameWithoutExt.includes(sessionId) ||
+          sessionId.includes(fileNameWithoutExt)
         ) {
-          console.log(`Fichier correspondant trouvé: ${fileName}`);
+          console.log(`Correspondance partielle trouvée: ${fileName}`);
           const url = await getDownloadURL(item);
+
+          // Afficher plus d'informations pour le débogage
+          console.log(`Session ID recherché: "${sessionId}"`);
+          console.log(`Nom de fichier trouvé: "${fileNameWithoutExt}"`);
+          console.log(`URL obtenue: ${url}`);
+
+          // Mettre à jour la session
+          const session = this.sessions.get(sessionId) || {
+            id: sessionId,
+            timestamp: Date.now(),
+            status: "pending",
+          };
+
+          session.url = url;
+          session.status = "completed";
+          session.timestamp = Date.now();
+          this.sessions.set(sessionId, session);
+          this.saveSessionsToLocalStorage();
+
           return url;
         }
       }
