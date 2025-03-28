@@ -3,6 +3,7 @@ import {
   uploadBytes,
   getDownloadURL,
   deleteObject,
+  listAll,
 } from "firebase/storage";
 import { storage } from "../firebase/config";
 
@@ -361,6 +362,60 @@ class AudioTransferService {
     if (this.sessionCheckInterval !== null) {
       window.clearInterval(this.sessionCheckInterval);
       this.sessionCheckInterval = null;
+    }
+  }
+
+  /**
+   * Vérifie directement l'existence d'un fichier audio dans Firebase Storage
+   * @param sessionId ID de la session
+   * @returns Promise avec l'URL de téléchargement ou null
+   */
+  public async checkDirectStorage(sessionId: string): Promise<string | null> {
+    try {
+      console.log(
+        `Vérification directe du fichier pour la session ${sessionId}`
+      );
+
+      // Essayer directement avec l'extension webm
+      try {
+        const fileRef = ref(storage, `recordings/${sessionId}.webm`);
+        const url = await getDownloadURL(fileRef);
+        console.log(`Fichier trouvé directement: ${url}`);
+        return url;
+      } catch (error) {
+        console.log(`Fichier webm non trouvé: ${sessionId}.webm`);
+        // Continuer avec les autres vérifications
+      }
+
+      // Lister tous les fichiers du dossier recordings
+      const folderRef = ref(storage, "recordings");
+      const result = await listAll(folderRef);
+
+      console.log(
+        `${result.items.length} fichiers trouvés dans le dossier recordings`
+      );
+
+      // Rechercher un fichier avec le nom exact, un préfixe ou une sous-chaîne
+      for (const item of result.items) {
+        const fileName = item.name;
+
+        if (
+          fileName === `${sessionId}.webm` ||
+          fileName.startsWith(sessionId) ||
+          fileName.includes(sessionId) ||
+          sessionId.includes(fileName.split(".")[0])
+        ) {
+          console.log(`Fichier correspondant trouvé: ${fileName}`);
+          const url = await getDownloadURL(item);
+          return url;
+        }
+      }
+
+      console.log(`Aucun fichier trouvé pour la session ${sessionId}`);
+      return null;
+    } catch (error) {
+      console.error(`Erreur lors de la vérification directe: ${error}`);
+      return null;
     }
   }
 }
