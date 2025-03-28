@@ -245,7 +245,7 @@ export function MobileRecordQRCode({
   };
 
   // Fonction pour utiliser un enregistrement existant
-  const useExistingRecording = async (url: string) => {
+  const handleUseRecording = async (url: string) => {
     try {
       setStatusMessage("Téléchargement de l'enregistrement...");
       const response = await fetch(url);
@@ -367,7 +367,7 @@ export function MobileRecordQRCode({
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => useExistingRecording(recording.url)}
+                      onClick={() => handleUseRecording(recording.url)}
                       className="text-xs h-7"
                     >
                       Utiliser
