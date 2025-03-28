@@ -4,12 +4,13 @@ interface QRCodeGeneratorProps {
   recordId: string;
 }
 
-export function QRCodeGenerator({ recordId }: QRCodeGeneratorProps) {
-  const generateQRCodeUrl = (id: string): string => {
-    const baseUrl = window.location.origin;
-    return `${baseUrl}/mobile-record?sessionId=${id}`;
-  };
+// Définir la fonction en dehors du composant pour pouvoir l'exporter
+export function generateQRCodeUrl(id: string): string {
+  const baseUrl = window.location.origin;
+  return `${baseUrl}/mobile-record?sessionId=${id}`;
+}
 
+export function QRCodeGenerator({ recordId }: QRCodeGeneratorProps) {
   const url = generateQRCodeUrl(recordId);
 
   return (
@@ -19,10 +20,4 @@ export function QRCodeGenerator({ recordId }: QRCodeGeneratorProps) {
       <p>URL: {url}</p>
     </div>
   );
-}
-
-export function generateQRCodeUrl(recordId: string): string {
-  // Make sure to use the full URL with domain
-  const baseUrl = window.location.origin;
-  return `${baseUrl}/mobile-record?sessionId=${recordId}`;
 }

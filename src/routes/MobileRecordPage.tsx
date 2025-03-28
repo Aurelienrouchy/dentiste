@@ -3,15 +3,17 @@ import { Button } from "@/components/ui/button";
 import { Mic, StopCircle } from "lucide-react";
 import { useAIService } from "@/lib/services/ai.service";
 import { aiService } from "@/lib/services/ai.service";
+import { useSearch } from "@tanstack/react-router";
+import { mobileRecordRoute } from "@/routes/index";
 
 export function MobileRecordPage() {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  // Access URL query parameters
-  const searchParams = new URLSearchParams(window.location.search);
-  const sessionId = searchParams.get("sessionId");
+  // Utiliser les hooks de TanStack Router
+  const search = useSearch({ from: mobileRecordRoute.id });
+  const sessionId = search.sessionId as string | undefined;
   const sessionIdValue = sessionId || null;
 
   const { startRecording, stopRecording, formatTime, isProcessing } =
