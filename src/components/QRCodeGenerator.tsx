@@ -7,7 +7,7 @@ interface QRCodeGeneratorProps {
 export function QRCodeGenerator({ recordId }: QRCodeGeneratorProps) {
   const generateQRCodeUrl = (id: string): string => {
     const baseUrl = window.location.origin;
-    return `${baseUrl}/mobile-record/${id}`;
+    return `${baseUrl}/mobile-record?sessionId=${id}`;
   };
 
   const url = generateQRCodeUrl(recordId);
@@ -19,4 +19,10 @@ export function QRCodeGenerator({ recordId }: QRCodeGeneratorProps) {
       <p>URL: {url}</p>
     </div>
   );
+}
+
+export function generateQRCodeUrl(recordId: string): string {
+  // Make sure to use the full URL with domain
+  const baseUrl = window.location.origin;
+  return `${baseUrl}/mobile-record?sessionId=${recordId}`;
 }

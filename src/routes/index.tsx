@@ -121,8 +121,13 @@ export const templatesRoute = createRoute({
 
 export const mobileRecordRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/mobile-record/$recordId",
+  path: "/mobile-record",
   component: MobileRecordPage,
+  validateSearch: (search) => {
+    return {
+      sessionId: search.sessionId || "",
+    };
+  },
 });
 
 // Création du routeur
@@ -130,6 +135,7 @@ const routeTree = rootRoute.addChildren([
   loginRoute,
   registerRoute,
   resetPasswordRoute,
+  mobileRecordRoute,
   protectedRoute.addChildren([
     indexRoute,
     documentsRoute,
@@ -138,7 +144,6 @@ const routeTree = rootRoute.addChildren([
     integrationsRoute,
     templatesRoute,
     // adminRoute,
-    mobileRecordRoute,
   ]),
 ]);
 
