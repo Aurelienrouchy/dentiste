@@ -85,6 +85,9 @@ class AIService {
     if (!this.hasApiKey()) {
       console.warn("OpenAI API key is not configured in environment variables");
     }
+
+    // Restaurer les sessions depuis localStorage si disponible
+    this.loadSessionsFromStorage();
   }
 
   /**
@@ -135,31 +138,123 @@ class AIService {
         );
       }
 
+      // Optimisation pour iOS - Safari a une implémentation particulière
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const isSafari = /Safari/.test(navigator.userAgent);
+
+      console.log("Détection plateforme:", { isIOS, isSafari });
+
+      // Contraintes audio spécifiques à la plateforme
+      const constraints: MediaStreamConstraints = {
+        audio: isIOS
+          ? true // iOS fonctionne mieux avec des contraintes simples
+          : {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+              // Qualité vocale pour les mobiles (économise la batterie et la bande passante)
+              sampleRate: 16000,
+              channelCount: 1,
+            },
+      };
+
+      console.log(
+        "Demande d'accès au microphone avec contraintes:",
+        constraints
+      );
+
       // Demander l'accès au microphone
-      console.log("Demande d'accès au microphone...");
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       console.log("Accès au microphone accordé");
 
-      // Vérifier les types MIME supportés
-      const mimeTypes = MediaRecorder.isTypeSupported("audio/webm")
-        ? "audio/webm"
-        : MediaRecorder.isTypeSupported("audio/ogg")
-        ? "audio/ogg"
-        : "audio/mp4";
+      // Vérifier les types MIME supportés pour maximiser la compatibilité
+      // L'ordre est important - tester d'abord les plus largement supportés
+      const mimeTypes = [
+        "audio/webm", // Chrome, Firefox, Edge
+        "audio/mp4", // Safari
+        "audio/ogg;codecs=opus", // Firefox
+        "audio/wav", // Fallback
+      ];
 
-      console.log("Type MIME utilisé:", mimeTypes);
+      let selectedMimeType = "";
 
-      // Créer un MediaRecorder avec les options audio optimisées pour la reconnaissance vocale
-      const options = { mimeType: mimeTypes };
-      const mediaRecorder = new MediaRecorder(stream, options);
-      console.log("MediaRecorder créé avec succès");
+      // Tester chaque type MIME dans l'ordre
+      for (const type of mimeTypes) {
+        try {
+          if (MediaRecorder.isTypeSupported(type)) {
+            selectedMimeType = type;
+            console.log(`Type MIME supporté trouvé: ${type}`);
+            break;
+          }
+        } catch (e) {
+          console.warn(`Erreur lors du test du type MIME ${type}:`, e);
+        }
+      }
 
+      console.log(
+        "Type MIME utilisé:",
+        selectedMimeType || "format par défaut du navigateur"
+      );
+
+      // Options de l'enregistreur avec fallback pour iOS
+      const options: MediaRecorderOptions = {};
+
+      if (selectedMimeType) {
+        options.mimeType = selectedMimeType;
+      }
+
+      // Bitrate audio plus bas pour les mobiles
+      if (!isIOS) {
+        // iOS ne supporte pas cette option
+        try {
+          options.audioBitsPerSecond = 16000;
+        } catch (e) {
+          console.warn("audioBitsPerSecond n'est pas supporté", e);
+        }
+      }
+
+      console.log("Création du MediaRecorder avec options:", options);
+
+      // Créer le MediaRecorder avec gestion spéciale pour iOS
+      let mediaRecorder: MediaRecorder;
+
+      try {
+        mediaRecorder = new MediaRecorder(stream, options);
+        console.log("MediaRecorder créé avec succès");
+      } catch (error) {
+        console.error("Erreur lors de la création du MediaRecorder:", error);
+
+        // Réessayer sans options pour iOS Safari
+        if (isIOS && isSafari) {
+          console.log(
+            "Réessai de création du MediaRecorder sans options pour iOS Safari"
+          );
+          mediaRecorder = new MediaRecorder(stream);
+        } else {
+          throw error;
+        }
+      }
+
+      // Configuration spéciale pour certaines versions de Safari
+      if (isIOS && isSafari) {
+        console.log("Configuration spéciale pour Safari iOS");
+
+        // S'assurer que le timeslice est configuré (requis sur certains Safari)
+        const originalStart = mediaRecorder.start;
+        mediaRecorder.start = function (timeslice?: number) {
+          return originalStart.call(this, timeslice || 1000);
+        };
+      }
+
+      console.log("MediaRecorder configuré et prêt:", mediaRecorder);
       return mediaRecorder;
     } catch (error) {
       console.error(
         "Erreur détaillée lors du démarrage de la reconnaissance vocale:",
         error
       );
+
+      // Gestion plus précise des erreurs par type
       if (error instanceof Error) {
         if (error.name === "NotAllowedError") {
           throw new Error(
@@ -173,10 +268,28 @@ class AIService {
           throw new Error(
             "Le microphone est déjà utilisé par une autre application. Veuillez fermer cette application et réessayer."
           );
+        } else if (error.name === "SecurityError") {
+          throw new Error(
+            "Erreur de sécurité: l'accès au microphone n'est pas autorisé dans ce contexte. Assurez-vous d'être en HTTPS."
+          );
+        } else if (error.name === "AbortError") {
+          throw new Error(
+            "L'accès au microphone a été annulé. Veuillez réessayer."
+          );
+        } else if (
+          error.name === "TypeError" &&
+          /iOS|iPhone|iPad|iPod/.test(navigator.userAgent)
+        ) {
+          throw new Error(
+            "Safari iOS peut nécessiter des paramètres spéciaux. Allez dans Réglages > Safari > Paramètres avancés et activez l'option 'Fonctionnalités web expérimentales'."
+          );
         }
       }
+
       throw new Error(
-        "Impossible d'accéder au microphone. Veuillez vérifier les permissions."
+        `Impossible d'accéder au microphone. Erreur: ${
+          error instanceof Error ? error.message : "inconnue"
+        }`
       );
     }
   }
@@ -371,11 +484,25 @@ class AIService {
    * @returns ID de la session
    */
   createMobileSession(): string {
-    const sessionId = Math.random().toString(36).substring(2, 15);
+    // Générer un ID de session aléatoire mais lisible
+    const sessionId =
+      Math.random().toString(36).substring(2, 10) +
+      Date.now().toString(36).substring(-4);
+
+    console.log("Nouvelle session mobile créée:", sessionId);
+
+    // Nettoyer les anciennes sessions
+    this.cleanExpiredSessions();
+
+    // Créer une nouvelle session
     this.mobileSessions.set(sessionId, {
       audioBlob: null,
       timestamp: Date.now(),
     });
+
+    // Sauvegarder dans localStorage
+    this.saveSessionsToStorage();
+
     return sessionId;
   }
 
@@ -383,13 +510,33 @@ class AIService {
    * Stocke l'audio enregistré depuis le mobile
    * @param sessionId ID de la session
    * @param audioBlob Blob audio à stocker
+   * @returns boolean indiquant si le stockage a réussi
    */
-  storeMobileAudio(sessionId: string, audioBlob: Blob): void {
+  storeMobileAudio(sessionId: string, audioBlob: Blob): boolean {
+    console.log(
+      `Tentative de stockage d'audio pour la session ${sessionId}`,
+      `Taille: ${Math.round(audioBlob.size / 1024)} KB`
+    );
+
     const session = this.mobileSessions.get(sessionId);
-    if (session) {
-      session.audioBlob = audioBlob;
-      session.timestamp = Date.now();
+
+    if (!session) {
+      console.warn(`Session ${sessionId} non trouvée pour le stockage audio`);
+      return false;
     }
+
+    if (this.isSessionExpired(session.timestamp)) {
+      console.warn(`Session ${sessionId} expirée, nettoyage`);
+      this.mobileSessions.delete(sessionId);
+      return false;
+    }
+
+    // Stocker l'audio et mettre à jour le timestamp
+    session.audioBlob = audioBlob;
+    session.timestamp = Date.now();
+    console.log(`Audio stocké avec succès pour la session ${sessionId}`);
+
+    return true;
   }
 
   /**
@@ -398,14 +545,32 @@ class AIService {
    * @returns Blob audio ou null si non trouvé
    */
   getMobileAudio(sessionId: string): Blob | null {
+    console.log(
+      `Tentative de récupération d'audio pour la session ${sessionId}`
+    );
+
     const session = this.mobileSessions.get(sessionId);
-    if (session && session.audioBlob) {
-      const audioBlob = session.audioBlob;
-      // Nettoyer la session après récupération
-      this.mobileSessions.delete(sessionId);
-      return audioBlob;
+
+    if (!session) {
+      console.warn(
+        `Session ${sessionId} non trouvée pour la récupération audio`
+      );
+      return null;
     }
-    return null;
+
+    if (!session.audioBlob) {
+      console.warn(`Aucun audio trouvé pour la session ${sessionId}`);
+      return null;
+    }
+
+    console.log(`Audio récupéré avec succès pour la session ${sessionId}`);
+    const audioBlob = session.audioBlob;
+
+    // On conserve la session pour permettre plusieurs récupérations si nécessaire
+    // mais on réinitialise le timestamp pour qu'elle expire plus tard
+    session.timestamp = Date.now();
+
+    return audioBlob;
   }
 
   /**
@@ -415,16 +580,99 @@ class AIService {
    */
   isValidMobileSession(sessionId: string): boolean {
     const session = this.mobileSessions.get(sessionId);
-    if (!session) return false;
 
-    // La session expire après 5 minutes
-    const isExpired = Date.now() - session.timestamp > 5 * 60 * 1000;
-    if (isExpired) {
+    if (!session) {
+      console.warn(`Session ${sessionId} n'existe pas`);
+      return false;
+    }
+
+    if (this.isSessionExpired(session.timestamp)) {
+      console.warn(`Session ${sessionId} expirée, nettoyage`);
       this.mobileSessions.delete(sessionId);
       return false;
     }
 
     return true;
+  }
+
+  /**
+   * Vérifie si une session est expirée
+   * @param timestamp Timestamp de la session
+   * @returns boolean
+   */
+  private isSessionExpired(timestamp: number): boolean {
+    // La session expire après 24 heures au lieu de 10 minutes
+    const SESSION_EXPIRY = 24 * 60 * 60 * 1000;
+    return Date.now() - timestamp > SESSION_EXPIRY;
+  }
+
+  /**
+   * Nettoie les sessions expirées
+   */
+  private cleanExpiredSessions(): void {
+    let expiredCount = 0;
+
+    this.mobileSessions.forEach((session, id) => {
+      if (this.isSessionExpired(session.timestamp)) {
+        this.mobileSessions.delete(id);
+        expiredCount++;
+      }
+    });
+
+    if (expiredCount > 0) {
+      console.log(`Nettoyage de ${expiredCount} sessions mobiles expirées`);
+    }
+  }
+
+  /**
+   * Sauvegarde les sessions dans localStorage
+   */
+  private saveSessionsToStorage(): void {
+    try {
+      // Convertir Map en format sérialisable
+      const sessionsArray = Array.from(this.mobileSessions.entries()).map(
+        ([id, session]) => {
+          return {
+            id,
+            // On ne sauvegarde pas le Blob audio, uniquement l'horodatage
+            timestamp: session.timestamp,
+          };
+        }
+      );
+
+      localStorage.setItem("mobile_sessions", JSON.stringify(sessionsArray));
+      console.log("Sessions sauvegardées dans localStorage");
+    } catch (error) {
+      console.warn("Erreur lors de la sauvegarde des sessions:", error);
+    }
+  }
+
+  /**
+   * Charge les sessions depuis localStorage
+   */
+  private loadSessionsFromStorage(): void {
+    try {
+      const storedSessions = localStorage.getItem("mobile_sessions");
+      if (!storedSessions) return;
+
+      const sessionsArray = JSON.parse(storedSessions);
+
+      // Restaurer les sessions
+      sessionsArray.forEach((session: { id: string; timestamp: number }) => {
+        if (!this.isSessionExpired(session.timestamp)) {
+          this.mobileSessions.set(session.id, {
+            audioBlob: null, // Le blob n'est pas sauvegardé
+            timestamp: session.timestamp,
+          });
+        }
+      });
+
+      console.log(
+        `${this.mobileSessions.size} sessions restaurées depuis localStorage`
+      );
+    } catch (error) {
+      console.warn("Erreur lors du chargement des sessions:", error);
+    }
   }
 }
 

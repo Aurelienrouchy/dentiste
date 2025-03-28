@@ -51,6 +51,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { Patient } from "@/lib/types/patient";
 import { Textarea } from "../components/ui/textarea";
 import { MobileRecordQRCode } from "@/components/MobileRecordQRCode";
+import { MobileRecordExample } from "@/components/MobileRecordExample";
 
 // Schéma de validation pour le formulaire
 const formSchema = z.object({
@@ -652,6 +653,17 @@ Date de naissance : ${birthDate}
               La transcription audio utilise le modèle Whisper et la génération
               de documents utilise GPT-4 pour garantir les meilleurs résultats.
             </p>
+          </div>
+
+          <div className="mt-8">
+            <h2 className="text-2xl font-semibold mb-4">
+              Enregistrement depuis mobile
+            </h2>
+            <p className="text-muted-foreground mb-4">
+              Utilisez votre téléphone pour enregistrer l'audio, puis traitez-le
+              directement sur votre ordinateur.
+            </p>
+            <MobileRecordExample />
           </div>
         </TabsContent>
 
