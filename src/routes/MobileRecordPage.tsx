@@ -19,6 +19,7 @@ export function MobileRecordPage() {
   const [isTransferred, setIsTransferred] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isReady, setIsReady] = useState(false);
+  const [isSessionInitialized, setIsSessionInitialized] = useState(false);
 
   // MediaRecorder refs
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -31,15 +32,27 @@ export function MobileRecordPage() {
   const sessionId = search.sessionId as string | undefined;
   const sessionIdValue = sessionId || null;
 
-  // Vérifier la validité de la session
+  // Force le service à initialiser ses données de session depuis localStorage
   useEffect(() => {
-    if (sessionIdValue) {
-      const isValid = aiService.isValidMobileSession(sessionIdValue);
-      if (!isValid) {
-        setError("Cette session a expiré ou n'est pas valide.");
-      }
+    console.log("MobileRecordPage - Initialisation du service AI");
+    // Créer une session temporaire pour forcer l'initialisation
+    const tempId = aiService.createMobileSession();
+    console.log("Session temporaire créée avec ID:", tempId);
+    setIsSessionInitialized(true);
+  }, []);
+
+  // Vérifier la validité de la session après l'initialisation
+  useEffect(() => {
+    if (!isSessionInitialized || !sessionIdValue) return;
+
+    console.log("Vérification de la validité de la session:", sessionIdValue);
+    const isValid = aiService.isValidMobileSession(sessionIdValue);
+    console.log("La session est-elle valide?", isValid);
+
+    if (!isValid) {
+      setError("Cette session a expiré ou n'est pas valide.");
     }
-  }, [sessionIdValue]);
+  }, [sessionIdValue, isSessionInitialized]);
 
   // Cleanup des ressources
   useEffect(() => {

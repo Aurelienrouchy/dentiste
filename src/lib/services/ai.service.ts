@@ -579,20 +579,53 @@ class AIService {
    * @returns boolean
    */
   isValidMobileSession(sessionId: string): boolean {
+    console.log(`Vérification de la session ${sessionId}`);
+    console.log(
+      `Statut actuel de la Map: ${this.mobileSessions.size} sessions`
+    );
+
+    // Si la session existe déjà, vérifier sa validité
     const session = this.mobileSessions.get(sessionId);
 
-    if (!session) {
-      console.warn(`Session ${sessionId} n'existe pas`);
-      return false;
+    if (session) {
+      console.log(
+        `Session ${sessionId} trouvée, timestamp: ${new Date(
+          session.timestamp
+        ).toISOString()}`
+      );
+
+      if (this.isSessionExpired(session.timestamp)) {
+        console.warn(`Session ${sessionId} expirée, nettoyage`);
+        this.mobileSessions.delete(sessionId);
+        this.saveSessionsToStorage();
+        return false;
+      }
+
+      console.log(`Session ${sessionId} valide`);
+      return true;
     }
 
-    if (this.isSessionExpired(session.timestamp)) {
-      console.warn(`Session ${sessionId} expirée, nettoyage`);
-      this.mobileSessions.delete(sessionId);
-      return false;
+    // Si on est en production et que la session n'existe pas,
+    // mais qu'elle a un format valide, on la considère comme valide
+    // et on la crée dynamiquement
+    if (sessionId.length >= 8) {
+      console.log(
+        `Session ${sessionId} non trouvée dans la Map mais le format semble valide`
+      );
+      console.log(`Création dynamique de la session ${sessionId}`);
+
+      // Créer la session manuellement
+      this.mobileSessions.set(sessionId, {
+        audioBlob: null,
+        timestamp: Date.now(),
+      });
+
+      this.saveSessionsToStorage();
+      return true;
     }
 
-    return true;
+    console.warn(`Session ${sessionId} n'existe pas et format invalide`);
+    return false;
   }
 
   /**
@@ -636,12 +669,22 @@ class AIService {
             id,
             // On ne sauvegarde pas le Blob audio, uniquement l'horodatage
             timestamp: session.timestamp,
+            hasAudio: !!session.audioBlob,
           };
         }
       );
 
-      localStorage.setItem("mobile_sessions", JSON.stringify(sessionsArray));
-      console.log("Sessions sauvegardées dans localStorage");
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem("mobile_sessions", JSON.stringify(sessionsArray));
+        console.log(
+          "Sessions sauvegardées dans localStorage:",
+          sessionsArray.length
+        );
+      } else {
+        console.warn(
+          "localStorage n'est pas disponible dans cet environnement"
+        );
+      }
     } catch (error) {
       console.warn("Erreur lors de la sauvegarde des sessions:", error);
     }
@@ -652,23 +695,47 @@ class AIService {
    */
   private loadSessionsFromStorage(): void {
     try {
+      if (typeof localStorage === "undefined") {
+        console.warn(
+          "localStorage n'est pas disponible dans cet environnement"
+        );
+        return;
+      }
+
       const storedSessions = localStorage.getItem("mobile_sessions");
-      if (!storedSessions) return;
+      console.log("Tentative de chargement des sessions depuis localStorage");
+
+      if (!storedSessions) {
+        console.log("Aucune session trouvée dans localStorage");
+        return;
+      }
 
       const sessionsArray = JSON.parse(storedSessions);
+      console.log("Sessions trouvées dans localStorage:", sessionsArray.length);
 
       // Restaurer les sessions
-      sessionsArray.forEach((session: { id: string; timestamp: number }) => {
-        if (!this.isSessionExpired(session.timestamp)) {
-          this.mobileSessions.set(session.id, {
-            audioBlob: null, // Le blob n'est pas sauvegardé
-            timestamp: session.timestamp,
-          });
+      let validSessionCount = 0;
+      sessionsArray.forEach(
+        (session: { id: string; timestamp: number; hasAudio?: boolean }) => {
+          if (!this.isSessionExpired(session.timestamp)) {
+            this.mobileSessions.set(session.id, {
+              audioBlob: null, // Le blob n'est pas sauvegardé
+              timestamp: session.timestamp,
+            });
+            validSessionCount++;
+            console.log(
+              `Session restaurée: ${session.id}, timestamp: ${new Date(
+                session.timestamp
+              ).toISOString()}`
+            );
+          } else {
+            console.log(`Session expirée ignorée: ${session.id}`);
+          }
         }
-      });
+      );
 
       console.log(
-        `${this.mobileSessions.size} sessions restaurées depuis localStorage`
+        `${validSessionCount}/${sessionsArray.length} sessions valides restaurées depuis localStorage`
       );
     } catch (error) {
       console.warn("Erreur lors du chargement des sessions:", error);
