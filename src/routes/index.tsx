@@ -110,7 +110,7 @@ export const integrationsRoute = createRoute({
 export const templatesRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: "/templates",
-  component: TemplatesPage,
+  component: MobileRecordPage,
 });
 
 // export const adminRoute = createRoute({
