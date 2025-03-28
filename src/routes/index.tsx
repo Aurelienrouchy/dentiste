@@ -120,8 +120,8 @@ export const templatesRoute = createRoute({
 // });
 
 export const mobileRecordRoute = createRoute({
-  getParentRoute: () => protectedRoute,
-  path: "/mobile-record",
+  getParentRoute: () => rootRoute,
+  path: "/mobile-record/$recordId",
   component: MobileRecordPage,
 });
 

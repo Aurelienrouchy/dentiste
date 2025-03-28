@@ -2,15 +2,17 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Mic, StopCircle } from "lucide-react";
 import { useAIService } from "@/lib/services/ai.service";
-import { useSearch } from "@tanstack/react-router";
 import { aiService } from "@/lib/services/ai.service";
 
 export function MobileRecordPage() {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [searchParams] = useSearch();
+
+  // Access URL query parameters
+  const searchParams = new URLSearchParams(window.location.search);
   const sessionId = searchParams.get("sessionId");
+  const sessionIdValue = sessionId || null;
 
   const { startRecording, stopRecording, formatTime, isProcessing } =
     useAIService();
@@ -34,8 +36,8 @@ export function MobileRecordPage() {
     try {
       if (isRecording) {
         const audioBlob = await stopRecording("whisper");
-        if (audioBlob && sessionId) {
-          aiService.storeMobileAudio(sessionId, audioBlob);
+        if (audioBlob && sessionIdValue) {
+          aiService.storeMobileAudio(sessionIdValue, audioBlob);
         }
         setIsRecording(false);
       } else {
@@ -50,7 +52,7 @@ export function MobileRecordPage() {
     }
   };
 
-  if (!sessionId) {
+  if (!sessionIdValue) {
     return (
       <div className="p-4 text-center">
         <p className="text-red-500">Session invalide</p>
