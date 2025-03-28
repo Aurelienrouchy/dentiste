@@ -39,29 +39,90 @@ export function MobileRecordQRCode({
     sessionId: string
   ): Promise<string | null> => {
     try {
+      console.log(
+        `Tentative de trouver le fichier pour la session: ${sessionId}`
+      );
+
+      // Essayer toutes les extensions possibles
+      const extensions = ["webm", "mp3", "mp4", "wav", "ogg"];
+
+      for (const ext of extensions) {
+        try {
+          // Vérifier directement si le fichier existe avec cette extension
+          const fileRef = ref(storage, `recordings/${sessionId}.${ext}`);
+          console.log(
+            `Vérification de l'existence de: recordings/${sessionId}.${ext}`
+          );
+
+          // Si getDownloadURL réussit, le fichier existe
+          const url = await getDownloadURL(fileRef);
+          console.log(`✅ Fichier trouvé! URL: ${url}`);
+          return url;
+        } catch (error) {
+          // Fichier non trouvé avec cette extension, essayer la suivante
+          console.log(
+            `❌ Fichier non trouvé avec extension .${ext}: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+      }
+
+      // Si on arrive ici, essayons de lister tous les fichiers du dossier pour le débogage
+      console.log("Listing de tous les fichiers dans le dossier 'recordings':");
       const folderRef = ref(storage, "recordings");
       const result = await listAll(folderRef);
 
-      console.log(
-        "Fichiers dans le dossier recordings:",
-        result.items.map((item) => item.name)
-      );
+      if (result.items.length === 0) {
+        console.log("Le dossier 'recordings' est vide!");
+      } else {
+        console.log(
+          "Fichiers trouvés dans 'recordings':",
+          result.items.map((item) => item.name).join(", ")
+        );
 
-      // Chercher des fichiers commençant par l'ID de session
-      const matchingFiles = result.items.filter((item) =>
-        item.name.startsWith(sessionId)
-      );
+        // Rechercher un fichier qui contient l'ID de session comme préfixe
+        let matchingFile = result.items.find((item) =>
+          item.name.startsWith(sessionId)
+        );
 
-      console.log(
-        `Fichiers correspondant à la session ${sessionId}:`,
-        matchingFiles.map((item) => item.name)
-      );
+        if (matchingFile) {
+          console.log(
+            `🔍 Fichier correspondant trouvé par préfixe: ${matchingFile.name}`
+          );
+        }
 
-      if (matchingFiles.length > 0) {
-        const fileRef = matchingFiles[0];
-        const downloadURL = await getDownloadURL(fileRef);
-        console.log(`URL de téléchargement trouvée: ${downloadURL}`);
-        return downloadURL;
+        // Si pas trouvé, chercher comme sous-chaîne
+        if (!matchingFile) {
+          matchingFile = result.items.find((item) =>
+            item.name.includes(sessionId)
+          );
+
+          if (matchingFile) {
+            console.log(
+              `🔍 Fichier correspondant trouvé par sous-chaîne: ${matchingFile.name}`
+            );
+          }
+        }
+
+        // Si pas trouvé comme sous-chaîne, vérifier si l'ID contient le nom du fichier
+        // (après avoir enlevé l'extension)
+        if (!matchingFile) {
+          for (const item of result.items) {
+            // Extraire le nom du fichier sans extension
+            const fileName = item.name.split(".")[0];
+            if (fileName && sessionId.includes(fileName)) {
+              matchingFile = item;
+              console.log(
+                `🔍 Fichier correspondant trouvé par inversion: l'ID ${sessionId} contient le nom du fichier ${fileName}`
+              );
+              break;
+            }
+          }
+        }
+
+        if (matchingFile) {
+          const url = await getDownloadURL(matchingFile);
+          return url;
+        }
       }
 
       return null;
@@ -87,6 +148,11 @@ export function MobileRecordQRCode({
       );
 
       try {
+        // Pour les 10 premières tentatives, afficher l'ID de session en entier
+        if (pollingCount <= 10) {
+          console.log(`Session actuelle: "${currentSessionId}"`);
+        }
+
         // Méthode 1 : Vérifier via notre service
         const isReady =
           await audioTransferService.isRecordingReady(currentSessionId);
@@ -154,7 +220,11 @@ export function MobileRecordQRCode({
       }
     };
 
-    const interval = setInterval(checkAudio, 2000); // Vérifier toutes les 2 secondes
+    const interval = setInterval(
+      checkAudio,
+      // Vérifier plus fréquemment pendant les 10 premières secondes
+      pollingCount < 10 ? 1000 : 2000
+    );
 
     return () => {
       clearInterval(interval);
