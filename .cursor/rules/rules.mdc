@@ -1,0 +1,87 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+# Adapted Project Guidelines
+
+## Code Style and Structure
+
+- Write concise, technical TypeScript code with accurate examples
+- Use functional programming patterns; avoid classes
+- Structure files with exported components, helpers, and types
+- Favor named exports for components and functions
+- Use lowercase with dashes for directory names (e.g., `components/patient-form`)
+
+## TypeScript and Zod Usage
+
+- Use TypeScript for all code; prefer interfaces for object shapes
+- Utilize Zod for schema validation with React Hook Form
+- Avoid enums; use literal types or maps instead
+- Implement functional components with TypeScript interfaces for props
+
+## Syntax and Formatting
+
+- Use the `function` keyword for components and pure functions
+- Write declarative JSX with clear structure
+- Use Tailwind's conditional classes with clsx/tailwind-merge instead of ternaries
+- Prefer early returns for cleaner code flow
+
+## UI and Styling
+
+- Use shadcn/ui components with Radix UI primitives
+- Implement TailwindCSS v4 for styling with utility classes
+- Use class-variance-authority for component variants
+- Ensure all components are accessible with proper ARIA attributes
+
+## State Management and Data Fetching
+
+- Use TanStack Query for data fetching, caching, and synchronization
+- Leverage React's built-in state management for UI state
+- Minimize `useEffect` usage; favor derived state and memoization
+- Implement React Hook Form with Zod validation for forms
+
+## Firebase Integration
+
+- Create abstraction layers for Firebase services in `/lib`
+- Implement proper error handling for Firebase operations
+- Structure Firestore collections with TypeScript interfaces
+- Use Firebase Auth for authentication flows
+
+## Error Handling and Validation
+
+- Handle errors at the beginning of functions with early returns
+- Use Sonner for toast notifications on success/error states
+- Implement proper error boundaries around critical components
+- Use Zod schemas to validate form inputs and API responses
+
+## Performance Optimization
+
+- Implement React.memo for expensive components
+- Use proper dependency arrays in hooks
+- Leverage code splitting and lazy loading for routes
+- Optimize Firebase queries with proper indexing
+
+## TanStack Router Usage
+
+- Structure routes based on TanStack Router patterns
+- Implement route loaders for data fetching
+- Handle route transitions with proper loading states
+- Use route params for dynamic data
+
+## Component Naming and Structure
+
+- Use PascalCase for component names
+- Prefix event handlers with "handle" (e.g., `handleSubmit`)
+- Use descriptive variable names with auxiliary verbs (e.g., `isLoading`)
+- Structure larger components with subcomponents for reusability
+
+## TipTap Editor Implementation
+
+- Use TipTap extensions for rich text editing features
+- Create abstraction layers for editor configurations
+- Implement proper toolbar components for editing actions
+- Handle document saving with proper validation
+
+These guidelines are specifically tailored to your dental practice application using Vite, React 19, TypeScript, TailwindCSS, shadcn/ui, Firebase, and TanStack Router.

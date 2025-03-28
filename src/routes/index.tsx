@@ -14,6 +14,7 @@ import { RegisterPage } from "./RegisterPage";
 import { ResetPasswordPage } from "./ResetPasswordPage";
 import IntegrationsPage from "./IntegrationsPage";
 import { TemplatesPage } from "./TemplatesPage";
+// import { AdminPage } from "./AdminPage";
 import { useAuth } from "@/lib/firebase/auth-context";
 import { MobileRecordPage } from "./MobileRecordPage";
 
@@ -112,6 +113,12 @@ export const templatesRoute = createRoute({
   component: TemplatesPage,
 });
 
+// export const adminRoute = createRoute({
+//   getParentRoute: () => protectedRoute,
+//   path: "/admin",
+//   component: AdminPage,
+// });
+
 export const mobileRecordRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: "/mobile-record",
@@ -130,6 +137,7 @@ const routeTree = rootRoute.addChildren([
     contactsRoute,
     integrationsRoute,
     templatesRoute,
+    // adminRoute,
     mobileRecordRoute,
   ]),
 ]);

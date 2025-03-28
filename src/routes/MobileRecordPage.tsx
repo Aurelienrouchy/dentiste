@@ -2,14 +2,14 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Mic, StopCircle } from "lucide-react";
 import { useAIService } from "@/lib/services/ai.service";
-import { useSearchParams } from "react-router-dom";
+import { useSearch } from "@tanstack/react-router";
 import { aiService } from "@/lib/services/ai.service";
 
 export function MobileRecordPage() {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [searchParams] = useSearchParams();
+  const [searchParams] = useSearch();
   const sessionId = searchParams.get("sessionId");
 
   const { startRecording, stopRecording, formatTime, isProcessing } =

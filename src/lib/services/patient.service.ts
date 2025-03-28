@@ -1,20 +1,20 @@
-import { db } from '@/lib/firebase/config';
-import { 
-  collection, 
-  doc, 
-  getDocs, 
-  getDoc, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  serverTimestamp, 
-  query, 
+import { db } from "@/lib/firebase/config";
+import {
+  collection,
+  doc,
+  getDocs,
+  getDoc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  serverTimestamp,
+  query,
   where,
-  Timestamp
-} from 'firebase/firestore';
-import { Patient, PatientFormValues } from '@/lib/types/patient';
+  Timestamp,
+} from "firebase/firestore";
+import { Patient, PatientFormValues } from "@/lib/types/patient";
 
-const COLLECTION_NAME = 'patients';
+const COLLECTION_NAME = "patients";
 
 export class PatientService {
   /**
@@ -27,7 +27,7 @@ export class PatientService {
       // Requête pour récupérer les patients créés par l'utilisateur courant
       const userPatientsQuery = query(
         collection(db, COLLECTION_NAME),
-        where('createdBy', '==', userId)
+        where("createdBy", "==", userId)
       );
 
       const querySnapshot = await getDocs(userPatientsQuery);
@@ -45,7 +45,7 @@ export class PatientService {
 
       return patients;
     } catch (error) {
-      console.error('Erreur lors de la récupération des patients:', error);
+      console.error("Erreur lors de la récupération des patients:", error);
       throw error;
     }
   }
@@ -56,19 +56,22 @@ export class PatientService {
    * @param userId ID de l'utilisateur (cabinet) pour vérification
    * @returns Le patient trouvé ou null
    */
-  static async getPatientById(patientId: string, userId: string): Promise<Patient | null> {
+  static async getPatientById(
+    patientId: string,
+    userId: string
+  ): Promise<Patient | null> {
     try {
       const patientRef = doc(db, COLLECTION_NAME, patientId);
       const patientSnap = await getDoc(patientRef);
 
       if (patientSnap.exists()) {
         const data = patientSnap.data();
-        
+
         // Vérifier que le patient appartient au bon utilisateur (cabinet)
         if (data.createdBy !== userId) {
           return null;
         }
-        
+
         return {
           id: patientSnap.id,
           ...data,
@@ -79,7 +82,7 @@ export class PatientService {
 
       return null;
     } catch (error) {
-      console.error('Erreur lors de la récupération du patient:', error);
+      console.error("Erreur lors de la récupération du patient:", error);
       throw error;
     }
   }
@@ -90,19 +93,25 @@ export class PatientService {
    * @param userId ID de l'utilisateur (cabinet) qui crée le patient
    * @returns L'ID du patient créé
    */
-  static async addPatient(patientData: PatientFormValues, userId: string): Promise<string> {
+  static async addPatient(
+    patientData: PatientFormValues,
+    userId: string
+  ): Promise<string> {
     try {
       const patientWithMeta = {
         ...patientData,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-        createdBy: userId
+        createdBy: userId,
       };
 
-      const docRef = await addDoc(collection(db, COLLECTION_NAME), patientWithMeta);
+      const docRef = await addDoc(
+        collection(db, COLLECTION_NAME),
+        patientWithMeta
+      );
       return docRef.id;
     } catch (error) {
-      console.error('Erreur lors de l\'ajout du patient:', error);
+      console.error("Erreur lors de l'ajout du patient:", error);
       throw error;
     }
   }
@@ -114,24 +123,28 @@ export class PatientService {
    * @param userId ID de l'utilisateur (cabinet) pour vérification
    * @returns true si la mise à jour a réussi
    */
-  static async updatePatient(patientId: string, patientData: PatientFormValues, userId: string): Promise<boolean> {
+  static async updatePatient(
+    patientId: string,
+    patientData: PatientFormValues,
+    userId: string
+  ): Promise<boolean> {
     try {
       // Vérifier que le patient appartient au bon utilisateur (cabinet)
       const patient = await this.getPatientById(patientId, userId);
       if (!patient) {
-        throw new Error('Patient non trouvé ou accès non autorisé');
+        throw new Error("Patient non trouvé ou accès non autorisé");
       }
-      
+
       const patientRef = doc(db, COLLECTION_NAME, patientId);
-      
+
       await updateDoc(patientRef, {
         ...patientData,
-        updatedAt: serverTimestamp()
+        updatedAt: serverTimestamp(),
       });
 
       return true;
     } catch (error) {
-      console.error('Erreur lors de la mise à jour du patient:', error);
+      console.error("Erreur lors de la mise à jour du patient:", error);
       throw error;
     }
   }
@@ -142,20 +155,23 @@ export class PatientService {
    * @param userId ID de l'utilisateur (cabinet) pour vérification
    * @returns true si la suppression a réussi
    */
-  static async deletePatient(patientId: string, userId: string): Promise<boolean> {
+  static async deletePatient(
+    patientId: string,
+    userId: string
+  ): Promise<boolean> {
     try {
       // Vérifier que le patient appartient au bon utilisateur (cabinet)
       const patient = await this.getPatientById(patientId, userId);
       if (!patient) {
-        throw new Error('Patient non trouvé ou accès non autorisé');
+        throw new Error("Patient non trouvé ou accès non autorisé");
       }
-      
+
       const patientRef = doc(db, COLLECTION_NAME, patientId);
       await deleteDoc(patientRef);
       return true;
     } catch (error) {
-      console.error('Erreur lors de la suppression du patient:', error);
+      console.error("Erreur lors de la suppression du patient:", error);
       throw error;
     }
   }
-} 
+}
