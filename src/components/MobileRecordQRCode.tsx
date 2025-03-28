@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Loader2 } from "lucide-react";
 import { aiService } from "@/lib/services/ai.service";
 
 interface MobileRecordQRCodeProps {
@@ -13,6 +13,8 @@ export function MobileRecordQRCode({
 }: MobileRecordQRCodeProps) {
   const [qrUrl, setQrUrl] = useState<string | null>(null);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [isPolling, setIsPolling] = useState(false);
+  const [pollingCount, setPollingCount] = useState(0);
 
   const generateSession = () => {
     const newSessionId = aiService.createMobileSession();
@@ -20,6 +22,7 @@ export function MobileRecordQRCode({
     setQrUrl(
       `${window.location.origin}/mobile-record?sessionId=${newSessionId}`
     );
+    setPollingCount(0);
   };
 
   useEffect(() => {
@@ -30,18 +33,46 @@ export function MobileRecordQRCode({
   useEffect(() => {
     if (!currentSessionId) return;
 
+    setIsPolling(true);
+
     const checkAudio = async () => {
-      const audioBlob = aiService.getMobileAudio(currentSessionId);
-      if (audioBlob) {
-        onAudioReceived(audioBlob);
-        generateSession(); // Générer une nouvelle session
+      setPollingCount((prev) => prev + 1);
+
+      try {
+        // Essayer d'abord de récupérer depuis la mémoire
+        let audioBlob = aiService.getMobileAudio(currentSessionId);
+
+        if (!audioBlob) {
+          // Si pas en mémoire, essayer depuis IndexedDB via notre nouvelle fonction
+          audioBlob =
+            (await aiService.getAudioFromIndexedDB?.(currentSessionId)) || null;
+        }
+
+        if (audioBlob) {
+          onAudioReceived(audioBlob);
+          setIsPolling(false);
+          generateSession(); // Générer une nouvelle session
+          return;
+        }
+
+        // Arrêter le polling après 180 essais (6 minutes)
+        if (pollingCount > 180) {
+          console.log("Polling arrêté après 180 tentatives");
+          setIsPolling(false);
+          return;
+        }
+      } catch (error) {
+        console.error("Erreur lors du polling audio:", error);
       }
     };
 
     const interval = setInterval(checkAudio, 2000); // Vérifier toutes les 2 secondes
 
-    return () => clearInterval(interval);
-  }, [currentSessionId, onAudioReceived]);
+    return () => {
+      clearInterval(interval);
+      setIsPolling(false);
+    };
+  }, [currentSessionId, onAudioReceived, pollingCount]);
 
   if (!qrUrl) {
     return null;
@@ -54,6 +85,13 @@ export function MobileRecordQRCode({
         <p className="text-sm text-muted-foreground mt-2 text-center">
           Scannez ce QR code avec votre téléphone pour enregistrer l'audio
         </p>
+
+        {isPolling && (
+          <div className="flex items-center justify-center mt-2 text-sm text-muted-foreground">
+            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+            <span>En attente de l'audio...</span>
+          </div>
+        )}
       </div>
       <Button
         variant="outline"

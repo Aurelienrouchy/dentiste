@@ -77,6 +77,11 @@ class AIService {
     }
   > = new Map();
 
+  // Database name and object store for IndexedDB
+  private readonly DB_NAME = "audioSessionsDB";
+  private readonly STORE_NAME = "audioSessions";
+  private readonly DB_VERSION = 1;
+
   constructor() {
     // Initialisation des modèles
     console.log("AIService initialized with environment API key");
@@ -86,8 +91,43 @@ class AIService {
       console.warn("OpenAI API key is not configured in environment variables");
     }
 
+    // Initialiser IndexedDB
+    this.initIndexedDB();
+
     // Restaurer les sessions depuis localStorage si disponible
     this.loadSessionsFromStorage();
+  }
+
+  /**
+   * Initialise la base de données IndexedDB
+   */
+  private initIndexedDB(): void {
+    if (!window.indexedDB) {
+      console.warn("Votre navigateur ne supporte pas IndexedDB");
+      return;
+    }
+
+    try {
+      const request = indexedDB.open(this.DB_NAME, this.DB_VERSION);
+
+      request.onerror = (event) => {
+        console.error("Erreur d'ouverture de IndexedDB:", event);
+      };
+
+      request.onupgradeneeded = (event) => {
+        const db = (event.target as IDBOpenDBRequest).result;
+        if (!db.objectStoreNames.contains(this.STORE_NAME)) {
+          db.createObjectStore(this.STORE_NAME, { keyPath: "id" });
+          console.log("Store IndexedDB créé");
+        }
+      };
+
+      request.onsuccess = () => {
+        console.log("IndexedDB ouvert avec succès");
+      };
+    } catch (error) {
+      console.error("Erreur d'initialisation de IndexedDB:", error);
+    }
   }
 
   /**
@@ -536,7 +576,67 @@ class AIService {
     session.timestamp = Date.now();
     console.log(`Audio stocké avec succès pour la session ${sessionId}`);
 
+    // Stocker dans IndexedDB également
+    this.storeAudioInIndexedDB(sessionId, audioBlob);
+
     return true;
+  }
+
+  /**
+   * Stocke l'audio dans IndexedDB
+   * @param sessionId ID de la session
+   * @param audioBlob Blob audio à stocker
+   */
+  private storeAudioInIndexedDB(sessionId: string, audioBlob: Blob): void {
+    if (!window.indexedDB) {
+      console.warn("IndexedDB non supporté");
+      return;
+    }
+
+    try {
+      const request = indexedDB.open(this.DB_NAME, this.DB_VERSION);
+
+      request.onerror = (event) => {
+        console.error("Erreur d'ouverture de IndexedDB:", event);
+      };
+
+      request.onsuccess = (event) => {
+        const db = (event.target as IDBOpenDBRequest).result;
+        const transaction = db.transaction([this.STORE_NAME], "readwrite");
+        const store = transaction.objectStore(this.STORE_NAME);
+
+        // Convertir le Blob en ArrayBuffer pour le stockage
+        const reader = new FileReader();
+        reader.readAsArrayBuffer(audioBlob);
+        reader.onload = () => {
+          const arrayBuffer = reader.result;
+          const sessionData = {
+            id: sessionId,
+            audioData: arrayBuffer,
+            timestamp: Date.now(),
+            mimeType: audioBlob.type || "audio/webm",
+          };
+
+          const storeRequest = store.put(sessionData);
+
+          storeRequest.onsuccess = () => {
+            console.log(
+              `Audio stocké dans IndexedDB pour la session ${sessionId}`
+            );
+          };
+
+          storeRequest.onerror = (e) => {
+            console.error(`Erreur de stockage dans IndexedDB:`, e);
+          };
+        };
+
+        transaction.oncomplete = () => {
+          db.close();
+        };
+      };
+    } catch (error) {
+      console.error("Erreur lors du stockage dans IndexedDB:", error);
+    }
   }
 
   /**
@@ -551,26 +651,97 @@ class AIService {
 
     const session = this.mobileSessions.get(sessionId);
 
-    if (!session) {
-      console.warn(
-        `Session ${sessionId} non trouvée pour la récupération audio`
-      );
-      return null;
+    // Si l'audio est déjà en mémoire, le retourner
+    if (session && session.audioBlob) {
+      console.log(`Audio trouvé en mémoire pour la session ${sessionId}`);
+      session.timestamp = Date.now(); // Réinitialiser le timestamp
+      return session.audioBlob;
     }
 
-    if (!session.audioBlob) {
+    // Sinon, essayer de le récupérer depuis IndexedDB
+    this.getAudioFromIndexedDB(sessionId).then((audioBlob) => {
+      if (audioBlob) {
+        console.log(`Audio récupéré depuis IndexedDB pour ${sessionId}`);
+
+        // Mettre à jour la session en mémoire
+        if (session) {
+          session.audioBlob = audioBlob;
+          session.timestamp = Date.now();
+        } else {
+          this.mobileSessions.set(sessionId, {
+            audioBlob,
+            timestamp: Date.now(),
+          });
+        }
+
+        return audioBlob;
+      }
+
       console.warn(`Aucun audio trouvé pour la session ${sessionId}`);
       return null;
+    });
+
+    // Pour la compatibilité, on retourne null ici, mais la promesse ci-dessus mettra à jour
+    // la session en mémoire pour les futures requêtes
+    return null;
+  }
+
+  /**
+   * Récupère l'audio depuis IndexedDB
+   * @param sessionId ID de la session
+   * @returns Promise avec le Blob audio ou null
+   */
+  async getAudioFromIndexedDB(sessionId: string): Promise<Blob | null> {
+    if (!window.indexedDB) {
+      console.warn("IndexedDB non supporté");
+      return null;
     }
 
-    console.log(`Audio récupéré avec succès pour la session ${sessionId}`);
-    const audioBlob = session.audioBlob;
+    return new Promise((resolve) => {
+      try {
+        const request = indexedDB.open(this.DB_NAME, this.DB_VERSION);
 
-    // On conserve la session pour permettre plusieurs récupérations si nécessaire
-    // mais on réinitialise le timestamp pour qu'elle expire plus tard
-    session.timestamp = Date.now();
+        request.onerror = () => {
+          console.error("Erreur d'ouverture de IndexedDB");
+          resolve(null);
+        };
 
-    return audioBlob;
+        request.onsuccess = (event) => {
+          const db = (event.target as IDBOpenDBRequest).result;
+          const transaction = db.transaction([this.STORE_NAME], "readonly");
+          const store = transaction.objectStore(this.STORE_NAME);
+          const getRequest = store.get(sessionId);
+
+          getRequest.onsuccess = () => {
+            const data = getRequest.result;
+            if (data && data.audioData) {
+              // Convertir ArrayBuffer en Blob
+              const blob = new Blob([data.audioData], {
+                type: data.mimeType || "audio/webm",
+              });
+              resolve(blob);
+            } else {
+              resolve(null);
+            }
+          };
+
+          getRequest.onerror = () => {
+            console.error("Erreur de récupération depuis IndexedDB");
+            resolve(null);
+          };
+
+          transaction.oncomplete = () => {
+            db.close();
+          };
+        };
+      } catch (error) {
+        console.error(
+          "Erreur lors de la récupération depuis IndexedDB:",
+          error
+        );
+        resolve(null);
+      }
+    });
   }
 
   /**

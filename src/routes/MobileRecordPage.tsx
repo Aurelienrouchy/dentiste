@@ -240,6 +240,15 @@ export function MobileRecordPage() {
         timerRef.current = null;
       }
 
+      // Assurer que nous avons des données audio avant d'arrêter
+      if (audioChunksRef.current.length === 0) {
+        console.warn("Aucun chunk audio n'a été enregistré");
+        // Forcer une dernière capture de données avant d'arrêter
+        if (mediaRecorderRef.current.state === "recording") {
+          mediaRecorderRef.current.requestData();
+        }
+      }
+
       // Gérer l'événement d'arrêt
       mediaRecorderRef.current.onstop = () => {
         try {
@@ -251,15 +260,27 @@ export function MobileRecordPage() {
               type: audioType,
             });
 
-            // Sur iOS Safari, nous gardons le stream actif pour les futurs enregistrements
+            console.log(
+              `Audio blob créé: ${Math.round(audioBlob.size / 1024)} KB`
+            );
 
-            // Nettoyer les autres ressources
+            // Nettoyer les ressources MediaRecorder
             mediaRecorderRef.current = null;
+
+            // On vide les chunks après avoir créé le blob
             audioChunksRef.current = [];
+
+            // Si le blob est trop petit (moins de 1KB), il y a probablement eu un problème
+            if (audioBlob.size < 1024) {
+              console.warn(
+                "Blob audio trop petit, possible problème d'enregistrement"
+              );
+            }
 
             resolve(audioBlob);
           } else {
             console.warn("Aucune donnée audio n'a été collectée");
+            cleanupAudioResources();
             resolve(null);
           }
         } catch (e) {
@@ -270,15 +291,46 @@ export function MobileRecordPage() {
       };
 
       // Gérer les erreurs
-      mediaRecorderRef.current.onerror = () => {
-        console.error("Erreur MediaRecorder");
+      mediaRecorderRef.current.onerror = (event) => {
+        console.error("Erreur MediaRecorder:", event);
         cleanupAudioResources();
         resolve(null);
       };
 
       // Arrêter l'enregistrement
       try {
-        mediaRecorderRef.current.stop();
+        // Capturer les données avant d'arrêter pour éviter les enregistrements vides
+        if (mediaRecorderRef.current.state === "recording") {
+          mediaRecorderRef.current.requestData();
+
+          // Utiliser setTimeout pour s'assurer que les données sont bien capturées avant l'arrêt
+          setTimeout(() => {
+            try {
+              if (
+                mediaRecorderRef.current &&
+                mediaRecorderRef.current.state === "recording"
+              ) {
+                mediaRecorderRef.current.stop();
+              } else {
+                console.warn(
+                  "MediaRecorder n'est plus en état d'enregistrement"
+                );
+                resolve(null);
+              }
+            } catch (err) {
+              console.error(
+                "Erreur lors de l'arrêt du MediaRecorder (retardé):",
+                err
+              );
+              cleanupAudioResources();
+              resolve(null);
+            }
+          }, 300);
+        } else {
+          console.warn("MediaRecorder n'est pas en état d'enregistrement");
+          cleanupAudioResources();
+          resolve(null);
+        }
       } catch (err) {
         console.error("Erreur lors de l'arrêt du MediaRecorder:", err);
         cleanupAudioResources();
@@ -298,18 +350,27 @@ export function MobileRecordPage() {
       if (isRecording) {
         // Arrêter l'enregistrement
         setIsProcessing(true);
+        setIsRecording(false); // Désactiver immédiatement pour éviter les double-clics
+
+        // Mettre une alerte visuelle d'arrêt en cours
+        setSuccessMessage("Arrêt de l'enregistrement en cours...");
+
         const audioBlob = await stopRecording();
 
         if (audioBlob && sessionIdValue) {
           // Stocker l'audio dans le service
-          aiService.storeMobileAudio(sessionIdValue, audioBlob);
+          const success = aiService.storeMobileAudio(sessionIdValue, audioBlob);
 
-          setSuccessMessage("Enregistrement réussi et transféré");
-          setIsTransferred(true);
+          if (success) {
+            setSuccessMessage("Enregistrement réussi et transféré");
+            setIsTransferred(true);
 
-          // Vibrer pour indiquer la réussite
-          if (navigator.vibrate) {
-            navigator.vibrate([100, 50, 100]);
+            // Vibrer pour indiquer la réussite
+            if (navigator.vibrate) {
+              navigator.vibrate([100, 50, 100]);
+            }
+          } else {
+            setError("Impossible de stocker l'audio. Veuillez réessayer.");
           }
         } else {
           setError(
@@ -317,7 +378,6 @@ export function MobileRecordPage() {
           );
         }
 
-        setIsRecording(false);
         setIsProcessing(false);
       } else {
         // Démarrer l'enregistrement
