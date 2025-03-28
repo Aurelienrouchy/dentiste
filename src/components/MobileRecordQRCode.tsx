@@ -1,11 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { RefreshCw, Loader2 } from "lucide-react";
+import { RefreshCw, Loader2, FileAudio } from "lucide-react";
 import { audioTransferService } from "@/lib/services/audioTransfer.service";
 import { Button } from "@/components/ui/button";
 
 interface MobileRecordQRCodeProps {
   onAudioReceived: (audioBlob: Blob) => void;
+}
+
+interface RecordingFile {
+  name: string;
+  url: string;
 }
 
 export function MobileRecordQRCode({
@@ -18,6 +23,9 @@ export function MobileRecordQRCode({
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [manualSessionId, setManualSessionId] = useState<string>("");
   const [showManualInput, setShowManualInput] = useState<boolean>(false);
+  const [recordings, setRecordings] = useState<RecordingFile[]>([]);
+  const [showRecordings, setShowRecordings] = useState(false);
+  const [isLoadingRecordings, setIsLoadingRecordings] = useState(false);
 
   const generateSession = () => {
     const newSessionId = audioTransferService.createSession();
@@ -131,23 +139,34 @@ export function MobileRecordQRCode({
       );
 
       try {
-        // Toujours afficher l'ID de session pour faciliter le débogage
-        console.log(`Session actuelle: "${currentSessionId}"`);
-
-        // Afficher un message d'état adapté
-        if (pollingCount === 1) {
-          setStatusMessage("Recherche de l'enregistrement...");
-        } else if (pollingCount > 0 && pollingCount % 5 === 0) {
-          setStatusMessage(
-            `Recherche en cours... (${Math.floor(pollingCount / 5)}s)`
-          );
+        // Pour les 10 premières tentatives, afficher l'ID de session en entier
+        if (pollingCount <= 10) {
+          console.log(`Session actuelle: "${currentSessionId}"`);
         }
 
-        // Méthode 2 : Essayer d'abord la vérification directe dans Firebase Storage
-        // Cette approche est plus fiable car elle ne dépend pas du cache local
-        const directSuccess = await checkFirebaseStorage();
+        // Méthode 1 : Vérifier via notre service
+        const isReady =
+          await audioTransferService.isRecordingReady(currentSessionId);
 
-        if (directSuccess) {
+        if (isReady) {
+          setStatusMessage("Enregistrement trouvé, téléchargement en cours...");
+          const audioBlob =
+            await audioTransferService.downloadRecording(currentSessionId);
+
+          if (audioBlob) {
+            console.log("Audio téléchargé avec succès via service");
+            onAudioReceived(audioBlob);
+            setIsPolling(false);
+            generateSession();
+            return;
+          }
+        }
+
+        // Méthode 2 : Vérifier directement dans Firebase Storage
+        setStatusMessage("Recherche directe dans Firebase Storage...");
+        const success = await checkFirebaseStorage();
+
+        if (success) {
           setStatusMessage("Fichier trouvé, téléchargement en cours...");
 
           try {
@@ -162,66 +181,39 @@ export function MobileRecordQRCode({
                 console.log("Audio téléchargé avec succès via Firebase direct");
                 onAudioReceived(blob);
                 setIsPolling(false);
-                setStatusMessage("Téléchargement réussi!");
-                setTimeout(() => {
-                  generateSession();
-                }, 1500);
+                generateSession();
                 return;
               } else {
                 console.error(
                   "Erreur lors du téléchargement:",
                   response.statusText
                 );
-                setStatusMessage(
-                  `Erreur HTTP: ${response.status} ${response.statusText}`
-                );
               }
             }
           } catch (error) {
             console.error("Erreur lors du téléchargement:", error);
-            const errorMessage =
-              error instanceof Error ? error.message : String(error);
-            setStatusMessage(`Erreur de téléchargement: ${errorMessage}`);
           }
         }
 
-        // Méthode 1 : Vérifier via notre service (utilise le cache local)
-        const isReady = await audioTransferService.isRecordingReady(
-          currentSessionId!
-        );
-
-        if (isReady) {
-          setStatusMessage("Enregistrement trouvé, téléchargement en cours...");
-          const audioBlob = await audioTransferService.downloadRecording(
-            currentSessionId!
+        // Afficher un message d'état adapté
+        if (pollingCount > 0 && pollingCount % 10 === 0) {
+          setStatusMessage(
+            `Toujours en attente d'enregistrement... (${pollingCount / 10}s)`
           );
-
-          if (audioBlob) {
-            console.log("Audio téléchargé avec succès via service");
-            onAudioReceived(audioBlob);
-            setIsPolling(false);
-            setStatusMessage("Téléchargement réussi!");
-            setTimeout(() => {
-              generateSession();
-            }, 1500);
-            return;
-          }
         }
 
         // Arrêter le polling après 300 essais (10 minutes)
         if (pollingCount > 300) {
           console.log("Polling arrêté après 300 tentatives");
-          setStatusMessage(
-            "Aucun enregistrement détecté après 10 minutes. Cliquez sur 'Actualiser' pour réessayer."
-          );
+          setStatusMessage("Aucun enregistrement détecté après 10 minutes");
           setIsPolling(false);
           return;
         }
       } catch (error) {
         console.error("Erreur lors du polling audio:", error);
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
-        setStatusMessage(`Erreur: ${errorMessage}`);
+        setStatusMessage(
+          `Erreur: ${error instanceof Error ? error.message : "Erreur inconnue"}`
+        );
       }
     };
 
@@ -236,6 +228,39 @@ export function MobileRecordQRCode({
       setIsPolling(false);
     };
   }, [currentSessionId, onAudioReceived, pollingCount]);
+
+  // Fonction pour charger tous les enregistrements
+  const loadAllRecordings = async () => {
+    setIsLoadingRecordings(true);
+    try {
+      const files = await audioTransferService.listAllRecordings();
+      setRecordings(files);
+      setShowRecordings(true);
+    } catch (error) {
+      console.error("Erreur lors du chargement des enregistrements:", error);
+      setStatusMessage("Erreur lors du chargement des enregistrements");
+    } finally {
+      setIsLoadingRecordings(false);
+    }
+  };
+
+  // Fonction pour utiliser un enregistrement existant
+  const useExistingRecording = async (url: string) => {
+    try {
+      setStatusMessage("Téléchargement de l'enregistrement...");
+      const response = await fetch(url);
+      if (response.ok) {
+        const blob = await response.blob();
+        onAudioReceived(blob);
+        setStatusMessage("Enregistrement chargé avec succès");
+      } else {
+        setStatusMessage(`Erreur lors du téléchargement: ${response.status}`);
+      }
+    } catch (error) {
+      console.error("Erreur lors du téléchargement:", error);
+      setStatusMessage("Erreur lors du téléchargement");
+    }
+  };
 
   if (!qrUrl) {
     return null;
@@ -281,6 +306,23 @@ export function MobileRecordQRCode({
         >
           {showManualInput ? "Masquer" : "Vérification manuelle"}
         </Button>
+
+        <Button
+          variant="default"
+          size="sm"
+          onClick={loadAllRecordings}
+          className="w-full"
+          disabled={isLoadingRecordings}
+        >
+          {isLoadingRecordings ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <FileAudio className="h-4 w-4 mr-2" />
+          )}
+          {showRecordings
+            ? "Actualiser la liste"
+            : "Afficher tous les enregistrements"}
+        </Button>
       </div>
 
       {showManualInput && (
@@ -307,6 +349,41 @@ export function MobileRecordQRCode({
           <p className="text-xs text-muted-foreground mt-1">
             Cette fonction permet de vérifier directement l'existence d'un
             fichier audio spécifique dans Firebase Storage.
+          </p>
+        </div>
+      )}
+
+      {showRecordings && recordings.length > 0 && (
+        <div className="w-full p-3 border rounded-md">
+          <h3 className="text-sm font-medium mb-2">
+            Enregistrements disponibles ({recordings.length})
+          </h3>
+          <div className="max-h-60 overflow-y-auto">
+            <ul className="space-y-2">
+              {recordings.map((recording, index) => (
+                <li key={index} className="text-xs border-b pb-2">
+                  <div className="flex justify-between items-center">
+                    <span className="truncate w-2/3">{recording.name}</span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => useExistingRecording(recording.url)}
+                      className="text-xs h-7"
+                    >
+                      Utiliser
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {showRecordings && recordings.length === 0 && (
+        <div className="w-full p-3 border rounded-md text-center">
+          <p className="text-sm text-muted-foreground">
+            Aucun enregistrement disponible
           </p>
         </div>
       )}

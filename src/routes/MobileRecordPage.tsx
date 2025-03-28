@@ -338,9 +338,6 @@ export function MobileRecordPage() {
 
     try {
       setUploadProgress(10);
-      console.log(
-        `Début du téléchargement pour la session ${sessionIdValue} (taille: ${audioBlob.size} octets, type: ${audioBlob.type})`
-      );
 
       // Simuler une progression de téléchargement pour la UX
       const progressInterval = setInterval(() => {
@@ -351,13 +348,7 @@ export function MobileRecordPage() {
       }, 300);
 
       // Télécharger l'audio sur Firebase Storage
-      const downloadUrl = await audioTransferService.uploadRecording(
-        sessionIdValue,
-        audioBlob
-      );
-      console.log(
-        `Téléchargement réussi vers Firebase Storage. URL: ${downloadUrl}`
-      );
+      await audioTransferService.uploadRecording(sessionIdValue, audioBlob);
 
       clearInterval(progressInterval);
       setUploadProgress(100);
@@ -365,23 +356,9 @@ export function MobileRecordPage() {
       // Libérer les ressources audio après un téléchargement réussi
       cleanupAudioResources();
 
-      // Afficher l'ID de session pour aide au débogage
-      console.log(
-        `ID de session pour récupération sur ordinateur: ${sessionIdValue}`
-      );
-      setSuccessMessage(
-        `Audio enregistré avec succès! ID de session: ${sessionIdValue}`
-      );
-
       return true;
     } catch (error) {
-      console.error(
-        "Erreur détaillée lors du téléchargement sur Firebase:",
-        error
-      );
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      setError(`Erreur lors du téléchargement: ${errorMessage}`);
+      console.error("Erreur lors du téléchargement sur Firebase:", error);
       setUploadProgress(0);
       return false;
     }
