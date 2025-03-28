@@ -1,0 +1,15 @@
+{
+  "rewrites": [
+    { "source": "/mobile-record", "destination": "/index.html" },
+    { "source": "/mobile-record/:path*", "destination": "/index.html" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "s-maxage=0" }
+      ]
+    }
+  ]
+} 

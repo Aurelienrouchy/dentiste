@@ -5,7 +5,7 @@ export const Route = createFileRoute("/mobile-record")({
   component: MobileRecordPage,
   validateSearch: (search) => {
     return {
-      sessionId: search.sessionId || "",
+      sessionId: search.sessionId ? String(search.sessionId) : "",
     };
   },
 });

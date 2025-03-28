@@ -17,6 +17,8 @@ import { Route as MobileRecordImport } from './routes/mobile-record'
 import { Route as LoginImport } from './routes/login'
 import { Route as AccueilImport } from './routes/accueil'
 import { Route as protectedImport } from './routes/__protected'
+import { Route as R404Import } from './routes/_404'
+import { Route as CatchAllImport } from './routes/$catchAll'
 import { Route as protectedIndexImport } from './routes/__protected/index'
 import { Route as protectedTemplatesImport } from './routes/__protected/templates'
 import { Route as protectedPatientsImport } from './routes/__protected/patients'
@@ -61,6 +63,17 @@ const protectedRoute = protectedImport.update({
   getParentRoute: () => rootRoute,
 } as any)
 
+const R404Route = R404Import.update({
+  id: '/_404',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const CatchAllRoute = CatchAllImport.update({
+  id: '/$catchAll',
+  path: '/$catchAll',
+  getParentRoute: () => rootRoute,
+} as any)
+
 const protectedIndexRoute = protectedIndexImport.update({
   id: '/',
   path: '/',
@@ -101,6 +114,20 @@ const protectedContactsRoute = protectedContactsImport.update({
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/$catchAll': {
+      id: '/$catchAll'
+      path: '/$catchAll'
+      fullPath: '/$catchAll'
+      preLoaderRoute: typeof CatchAllImport
+      parentRoute: typeof rootRoute
+    }
+    '/_404': {
+      id: '/_404'
+      path: ''
+      fullPath: ''
+      preLoaderRoute: typeof R404Import
+      parentRoute: typeof rootRoute
+    }
     '/__protected': {
       id: '/__protected'
       path: ''
@@ -213,6 +240,7 @@ const protectedRouteWithChildren = protectedRoute._addFileChildren(
 )
 
 export interface FileRoutesByFullPath {
+  '/$catchAll': typeof CatchAllRoute
   '': typeof protectedRouteWithChildren
   '/accueil': typeof AccueilRoute
   '/login': typeof LoginRoute
@@ -228,6 +256,8 @@ export interface FileRoutesByFullPath {
 }
 
 export interface FileRoutesByTo {
+  '/$catchAll': typeof CatchAllRoute
+  '': typeof R404Route
   '/accueil': typeof AccueilRoute
   '/login': typeof LoginRoute
   '/mobile-record': typeof MobileRecordRoute
@@ -243,6 +273,8 @@ export interface FileRoutesByTo {
 
 export interface FileRoutesById {
   __root__: typeof rootRoute
+  '/$catchAll': typeof CatchAllRoute
+  '/_404': typeof R404Route
   '/__protected': typeof protectedRouteWithChildren
   '/accueil': typeof AccueilRoute
   '/login': typeof LoginRoute
@@ -260,6 +292,7 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
+    | '/$catchAll'
     | ''
     | '/accueil'
     | '/login'
@@ -274,6 +307,8 @@ export interface FileRouteTypes {
     | '/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/$catchAll'
+    | ''
     | '/accueil'
     | '/login'
     | '/mobile-record'
@@ -287,6 +322,8 @@ export interface FileRouteTypes {
     | '/'
   id:
     | '__root__'
+    | '/$catchAll'
+    | '/_404'
     | '/__protected'
     | '/accueil'
     | '/login'
@@ -303,6 +340,8 @@ export interface FileRouteTypes {
 }
 
 export interface RootRouteChildren {
+  CatchAllRoute: typeof CatchAllRoute
+  R404Route: typeof R404Route
   protectedRoute: typeof protectedRouteWithChildren
   AccueilRoute: typeof AccueilRoute
   LoginRoute: typeof LoginRoute
@@ -312,6 +351,8 @@ export interface RootRouteChildren {
 }
 
 const rootRouteChildren: RootRouteChildren = {
+  CatchAllRoute: CatchAllRoute,
+  R404Route: R404Route,
   protectedRoute: protectedRouteWithChildren,
   AccueilRoute: AccueilRoute,
   LoginRoute: LoginRoute,
@@ -330,6 +371,8 @@ export const routeTree = rootRoute
     "__root__": {
       "filePath": "__root.tsx",
       "children": [
+        "/$catchAll",
+        "/_404",
         "/__protected",
         "/accueil",
         "/login",
@@ -337,6 +380,12 @@ export const routeTree = rootRoute
         "/register",
         "/reset-password"
       ]
+    },
+    "/$catchAll": {
+      "filePath": "$catchAll.tsx"
+    },
+    "/_404": {
+      "filePath": "_404.tsx"
     },
     "/__protected": {
       "filePath": "__protected.tsx",
