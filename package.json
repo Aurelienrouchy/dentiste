@@ -7,8 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview",
-    "setup-admin": "ts-node scripts/set-admin.ts"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@hookform/resolvers": "^4.1.2",
@@ -25,7 +24,8 @@
     "@tailwindcss/vite": "^4.0.9",
     "@tanstack/react-query": "^5.66.11",
     "@tanstack/react-query-devtools": "^5.66.11",
-    "@tanstack/react-router": "^1.112.0",
+    "@tanstack/react-router": "^1.114.29",
+    "@tanstack/router": "^0.0.1-beta.53",
     "@tanstack/router-devtools": "^1.112.0",
     "@tiptap/extension-color": "^2.11.5",
     "@tiptap/extension-font-family": "^2.11.5",

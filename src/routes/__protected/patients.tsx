@@ -1,13 +1,6 @@
-import { createRoute } from "@tanstack/react-router";
-import { PatientsPage as PatientsComponent } from "../PatientsPage";
-import { Route as protectedRoute } from "../__protected";
+import { createFileRoute } from "@tanstack/react-router";
+import { PatientsPage } from "../PatientsPage";
 
-export function Component() {
-  return <PatientsComponent />;
-}
-
-export const Route = createRoute({
-  getParentRoute: () => protectedRoute,
-  path: "/patients",
-  component: Component,
+export const Route = createFileRoute("/__protected/patients")({
+  component: PatientsPage,
 });

@@ -1,13 +1,6 @@
-import { createRoute } from "@tanstack/react-router";
-import { RegisterPage as RegisterComponent } from "./RegisterPage";
-import { Route as rootRoute } from "./__root";
+import { createFileRoute } from "@tanstack/react-router";
+import { RegisterPage } from "./RegisterPage";
 
-export function Component() {
-  return <RegisterComponent />;
-}
-
-export const Route = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/register",
-  component: Component,
+export const Route = createFileRoute("/register")({
+  component: RegisterPage,
 });

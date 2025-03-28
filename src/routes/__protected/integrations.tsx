@@ -1,13 +1,6 @@
-import { createRoute } from "@tanstack/react-router";
-import IntegrationsComponent from "../IntegrationsPage";
-import { Route as protectedRoute } from "../__protected";
+import { createFileRoute } from "@tanstack/react-router";
+import IntegrationsPage from "../IntegrationsPage";
 
-export function Component() {
-  return <IntegrationsComponent />;
-}
-
-export const Route = createRoute({
-  getParentRoute: () => protectedRoute,
-  path: "/integrations",
-  component: Component,
+export const Route = createFileRoute("/__protected/integrations")({
+  component: IntegrationsPage,
 });

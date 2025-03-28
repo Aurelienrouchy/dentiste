@@ -1,15 +1,8 @@
-import { createRoute } from "@tanstack/react-router";
-import { MobileRecordPage as MobileRecordComponent } from "./MobileRecordPage";
-import { Route as rootRoute } from "./__root";
+import { createFileRoute } from "@tanstack/react-router";
+import { MobileRecordPage } from "./MobileRecordPage";
 
-export function Component() {
-  return <MobileRecordComponent />;
-}
-
-export const Route = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/mobile-record",
-  component: Component,
+export const Route = createFileRoute("/mobile-record")({
+  component: MobileRecordPage,
   validateSearch: (search) => {
     return {
       sessionId: search.sessionId || "",

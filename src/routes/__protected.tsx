@@ -1,8 +1,7 @@
-import { createRoute, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { useAuth } from "@/lib/firebase/auth-context";
 import { LoginPage } from "./LoginPage";
-import { Route as rootRoute } from "./__root";
 
 // Protected layout component
 function ProtectedLayout() {
@@ -20,8 +19,6 @@ function ProtectedLayout() {
   );
 }
 
-export const Route = createRoute({
-  getParentRoute: () => rootRoute,
-  id: "protected",
+export const Route = createFileRoute("/__protected")({
   component: ProtectedLayout,
 });

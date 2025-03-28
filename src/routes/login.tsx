@@ -1,13 +1,6 @@
-import { createRoute } from "@tanstack/react-router";
-import { LoginPage as LoginComponent } from "./LoginPage";
-import { Route as rootRoute } from "./__root";
+import { createFileRoute } from "@tanstack/react-router";
+import { LoginPage } from "./LoginPage";
 
-export function Component() {
-  return <LoginComponent />;
-}
-
-export const Route = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/login",
-  component: Component,
+export const Route = createFileRoute("/login")({
+  component: LoginPage,
 });
