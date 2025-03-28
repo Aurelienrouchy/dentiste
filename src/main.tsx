@@ -4,7 +4,7 @@ import { RouterProvider } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { AuthProvider } from "@/lib/firebase/auth-context";
-import { router } from "@/routes/index";
+import { router } from "@/router";
 import "./index.css";
 
 // Créer un client pour React Query

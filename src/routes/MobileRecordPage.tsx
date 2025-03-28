@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { aiService } from "@/lib/services/ai.service";
 import { useSearch } from "@tanstack/react-router";
-import { mobileRecordRoute } from "@/routes/index";
+import { Route as mobileRecordRoute } from "./mobile-record";
 
 export function MobileRecordPage() {
   const [isRecording, setIsRecording] = useState(false);
