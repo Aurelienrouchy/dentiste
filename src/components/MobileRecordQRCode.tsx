@@ -39,8 +39,11 @@ export function MobileRecordQRCode({
       setPollingCount((prev) => prev + 1);
 
       try {
-        // Vérifier si l'enregistrement est prêt
-        if (audioTransferService.isRecordingReady(currentSessionId)) {
+        // Vérifier si l'enregistrement est prêt (maintenant asynchrone)
+        const isReady =
+          await audioTransferService.isRecordingReady(currentSessionId);
+
+        if (isReady) {
           // Télécharger l'enregistrement
           const audioBlob =
             await audioTransferService.downloadRecording(currentSessionId);

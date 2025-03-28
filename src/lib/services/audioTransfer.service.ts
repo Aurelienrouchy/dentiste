@@ -65,10 +65,20 @@ class AudioTransferService {
     audioBlob: Blob
   ): Promise<string> {
     try {
-      const session = this.sessions.get(sessionId);
+      let session = this.sessions.get(sessionId);
 
+      // Si la session n'existe pas dans cette instance, la créer
       if (!session) {
-        throw new Error(`Session non trouvée: ${sessionId}`);
+        console.log(
+          `Session ${sessionId} non trouvée localement, création automatique`
+        );
+        session = {
+          id: sessionId,
+          timestamp: Date.now(),
+          status: "pending",
+        };
+        this.sessions.set(sessionId, session);
+        this.saveSessionsToLocalStorage();
       }
 
       // Déterminer l'extension de fichier en fonction du type MIME
@@ -126,14 +136,59 @@ class AudioTransferService {
    * @param sessionId ID de la session
    * @returns true si l'enregistrement est disponible
    */
-  public isRecordingReady(sessionId: string): boolean {
-    const session = this.sessions.get(sessionId);
+  public async isRecordingReady(sessionId: string): Promise<boolean> {
+    try {
+      // Vérifier d'abord en mémoire
+      const session = this.sessions.get(sessionId);
+      if (session && session.status === "completed" && !!session.url) {
+        return true;
+      }
 
-    if (!session) {
+      // Si pas en mémoire, essayer de vérifier directement sur Firebase Storage
+      try {
+        // Essayer avec différentes extensions possibles
+        const extensions = ["webm", "mp3", "mp4", "wav", "ogg"];
+
+        for (const ext of extensions) {
+          const filename = `${this.STORAGE_PATH}/${sessionId}.${ext}`;
+          const storageRef = ref(storage, filename);
+
+          try {
+            // Si on peut obtenir l'URL, le fichier existe
+            const url = await getDownloadURL(storageRef);
+
+            // Créer ou mettre à jour la session locale
+            if (!session) {
+              this.sessions.set(sessionId, {
+                id: sessionId,
+                timestamp: Date.now(),
+                status: "completed",
+                url,
+              });
+            } else {
+              session.status = "completed";
+              session.url = url;
+              session.timestamp = Date.now();
+            }
+
+            this.saveSessionsToLocalStorage();
+            return true;
+          } catch (e) {
+            // Fichier non trouvé avec cette extension, continuer avec la suivante
+            continue;
+          }
+        }
+      } catch (error) {
+        console.log(
+          `Erreur lors de la vérification dans Firebase Storage: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+
+      return false;
+    } catch (error) {
+      console.error("Erreur dans isRecordingReady:", error);
       return false;
     }
-
-    return session.status === "completed" && !!session.url;
   }
 
   /**
