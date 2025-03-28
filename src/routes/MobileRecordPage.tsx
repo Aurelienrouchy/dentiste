@@ -62,8 +62,14 @@ export function MobileRecordPage() {
   // Nettoyer les ressources audio
   const cleanupAudioResources = () => {
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
+      console.log("Arrêt des pistes audio et libération du microphone");
+      streamRef.current.getTracks().forEach((track) => {
+        track.stop();
+        console.log(`Piste ${track.kind} arrêtée`);
+      });
       streamRef.current = null;
+    } else {
+      console.log("Aucun stream audio à nettoyer");
     }
 
     if (
@@ -72,6 +78,7 @@ export function MobileRecordPage() {
     ) {
       try {
         mediaRecorderRef.current.stop();
+        console.log("MediaRecorder arrêté");
       } catch (e) {
         console.warn("Erreur lors de l'arrêt du MediaRecorder:", e);
       }
@@ -346,6 +353,9 @@ export function MobileRecordPage() {
       clearInterval(progressInterval);
       setUploadProgress(100);
 
+      // Libérer les ressources audio après un téléchargement réussi
+      cleanupAudioResources();
+
       return true;
     } catch (error) {
       console.error("Erreur lors du téléchargement sur Firebase:", error);
@@ -381,6 +391,9 @@ export function MobileRecordPage() {
           if (success) {
             setSuccessMessage("Enregistrement réussi et transféré");
             setIsTransferred(true);
+
+            // Assurer que toutes les ressources audio sont libérées
+            cleanupAudioResources();
 
             // Vibrer pour indiquer la réussite
             if (navigator.vibrate) {
@@ -435,6 +448,14 @@ export function MobileRecordPage() {
     }
   };
 
+  // Ajouter un effet pour libérer les ressources lorsque isTransferred devient true
+  useEffect(() => {
+    if (isTransferred) {
+      console.log("Transfert réussi, libération des ressources audio");
+      cleanupAudioResources();
+    }
+  }, [isTransferred]);
+
   // Affichage en cas de session invalide
   if (!sessionIdValue) {
     return (
@@ -446,6 +467,9 @@ export function MobileRecordPage() {
 
   // Affichage après transfert réussi
   if (isTransferred) {
+    // S'assurer que toutes les ressources audio sont libérées
+    cleanupAudioResources();
+
     return (
       <div className="min-h-screen bg-background p-4 flex flex-col items-center justify-center">
         <div className="w-full max-w-md space-y-4 text-center">
@@ -455,6 +479,9 @@ export function MobileRecordPage() {
             L'audio a été envoyé à l'ordinateur avec succès. Vous pouvez
             maintenant fermer cette page.
           </p>
+          <Button className="mt-4" onClick={() => window.close()}>
+            Fermer cette page
+          </Button>
         </div>
       </div>
     );
