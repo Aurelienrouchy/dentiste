@@ -112,7 +112,7 @@ export function SimplifiedMobileRecord({
       </Button>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[425px] bg-white">
           <DialogHeader>
             <DialogTitle>Enregistrement depuis mobile</DialogTitle>
           </DialogHeader>
