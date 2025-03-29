@@ -1,8 +1,14 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { MobileRecordQRCode } from "./MobileRecordQRCode";
 import { Button } from "@/components/ui/button";
 import { PlayCircle, PauseCircle, CheckCircle } from "lucide-react";
 import { useAIService } from "@/lib/services/ai.service";
+import {
+  safePlay,
+  safePause,
+  createAudioUrl,
+  revokeAudioUrl,
+} from "@/lib/utils/audio-helpers";
 
 export function MobileRecordExample() {
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
@@ -10,18 +16,34 @@ export function MobileRecordExample() {
   const [transcript, setTranscript] = useState<string | null>(null);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const { transcribeAudio } = useAIService();
+
+  // Cleanup audio URL on unmount
+  useEffect(() => {
+    return () => {
+      if (audioUrl) {
+        revokeAudioUrl(audioUrl);
+      }
+    };
+  }, [audioUrl]);
 
   // Gestionnaire pour recevoir l'audio du téléphone
   const handleAudioReceived = (blob: Blob) => {
     setAudioBlob(blob);
 
+    // Cleanup any existing audio URL
+    if (audioUrl) {
+      revokeAudioUrl(audioUrl);
+    }
+
     // Créer un URL pour le blob audio
-    const audioUrl = URL.createObjectURL(blob);
+    const newAudioUrl = createAudioUrl(blob);
+    setAudioUrl(newAudioUrl);
 
     // Mettre à jour la source audio
     if (audioRef.current) {
-      audioRef.current.src = audioUrl;
+      audioRef.current.src = newAudioUrl;
     }
   };
 
@@ -29,11 +51,18 @@ export function MobileRecordExample() {
   const handlePlayAudio = () => {
     if (audioRef.current) {
       if (isPlaying) {
-        audioRef.current.pause();
+        safePause(audioRef.current);
+        setIsPlaying(false);
       } else {
-        audioRef.current.play();
+        safePlay(audioRef.current)
+          .then(() => {
+            setIsPlaying(true);
+          })
+          .catch((error) => {
+            console.error("Error playing audio:", error);
+            setIsPlaying(false);
+          });
       }
-      setIsPlaying(!isPlaying);
     }
   };
 
@@ -55,6 +84,21 @@ export function MobileRecordExample() {
         setIsTranscribing(false);
       }
     }
+  };
+
+  // Cleanup resources
+  const cleanupResources = () => {
+    if (audioRef.current) {
+      audioRef.current.src = "";
+    }
+
+    if (audioUrl) {
+      revokeAudioUrl(audioUrl);
+      setAudioUrl(null);
+    }
+
+    setAudioBlob(null);
+    setTranscript(null);
   };
 
   return (
@@ -94,7 +138,7 @@ export function MobileRecordExample() {
             </div>
           </div>
 
-          {!transcript ? (
+          {!transcript && (
             <div className="flex justify-center">
               <Button
                 onClick={handleTranscribe}
@@ -103,36 +147,29 @@ export function MobileRecordExample() {
               >
                 {isTranscribing ? (
                   <>
-                    <div className="animate-spin h-4 w-4 border-b-2 border-white rounded-full"></div>
-                    <span>Transcription en cours...</span>
+                    <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full"></div>
+                    Transcription...
                   </>
                 ) : (
-                  <span>Transcrire l'audio</span>
+                  <>
+                    <CheckCircle className="h-4 w-4" />
+                    Transcrire l'audio
+                  </>
                 )}
               </Button>
             </div>
-          ) : (
-            <div className="p-4 bg-muted rounded-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <CheckCircle className="h-5 w-5 text-green-600" />
-                <h3 className="font-medium">Transcription</h3>
-              </div>
+          )}
+
+          {transcript && (
+            <div className="p-4 border rounded-lg bg-muted/30">
+              <h3 className="font-medium mb-2">Transcription :</h3>
               <p className="text-sm">{transcript}</p>
             </div>
           )}
 
           <div className="flex justify-center mt-4">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setAudioBlob(null);
-                setTranscript(null);
-                if (audioRef.current) {
-                  audioRef.current.src = "";
-                }
-              }}
-            >
-              Nouvel enregistrement
+            <Button variant="outline" onClick={cleanupResources}>
+              Effacer et recommencer
             </Button>
           </div>
         </div>
