@@ -13,6 +13,8 @@ export interface AudioSession {
   url?: string;
   status: "pending" | "completed" | "error";
   userId?: string;
+  // Nouvel attribut pour suivre si l'audio est en cache local
+  localCacheKey?: string;
 }
 
 class AudioTransferService {
@@ -129,12 +131,41 @@ class AudioTransferService {
 
       const downloadURL = await getDownloadURL(storageRef);
 
+      // Stocker le blob audio dans sessionStorage pour éviter les problèmes CORS
+      const cacheKey = `audio_blob_${sessionId}`;
+      try {
+        // Convertir le blob en base64 pour le stockage
+        const reader = new FileReader();
+        const base64Promise = new Promise<string>((resolve) => {
+          reader.onloadend = () => {
+            if (typeof reader.result === "string") {
+              resolve(reader.result);
+            }
+          };
+        });
+        reader.readAsDataURL(audioBlob);
+        const base64Data = await base64Promise;
+
+        // Stocker dans localStorage (ou sessionStorage selon le besoin)
+        localStorage.setItem(cacheKey, base64Data);
+        console.log("Audio blob stocké localement avec la clé:", cacheKey);
+
+        // Mettre à jour la session avec la clé de cache local
+        session.localCacheKey = cacheKey;
+      } catch (error) {
+        console.warn(
+          "Impossible de mettre en cache l'audio localement:",
+          error
+        );
+      }
+
       // Log de diagnostic
       console.log("=== DIAGNOSTIC INFO ===");
       console.log("File uploaded to exact path:", filename);
       console.log("Session ID:", sessionId);
       console.log("User ID:", userIdToUse || "none");
       console.log("Download URL:", downloadURL);
+      console.log("Local cache key:", session.localCacheKey || "none");
       console.log("=====================");
 
       // Mettre à jour la session avec l'URL
@@ -193,6 +224,15 @@ class AudioTransferService {
       if (session && session.status === "completed" && !!session.url) {
         console.log("Session complète avec URL trouvée en mémoire");
         return true;
+      }
+
+      // Vérifier aussi si le blob est en cache local
+      if (session && session.localCacheKey) {
+        const cachedData = localStorage.getItem(session.localCacheKey);
+        if (cachedData) {
+          console.log("Audio trouvé en cache local");
+          return true;
+        }
       }
 
       // Utiliser l'ID utilisateur de la session si disponible
@@ -305,7 +345,7 @@ class AudioTransferService {
   }
 
   /**
-   * Télécharge un enregistrement audio à partir de l'URL
+   * Télécharge un enregistrement audio à partir de l'URL ou du cache local
    * @param sessionId ID de la session
    * @returns Promise avec le Blob audio ou null
    */
@@ -313,23 +353,85 @@ class AudioTransferService {
     try {
       const session = this.sessions.get(sessionId);
 
-      if (!session || !session.url) {
+      if (!session) {
+        console.warn(`Session non trouvée: ${sessionId}`);
+        return null;
+      }
+
+      // Vérifier d'abord si l'audio est en cache local
+      if (session.localCacheKey) {
+        const cachedData = localStorage.getItem(session.localCacheKey);
+        if (cachedData) {
+          console.log("Récupération de l'audio depuis le cache local");
+          try {
+            // Convertir les données base64 en Blob
+            const base64Response = await fetch(cachedData);
+            const blob = await base64Response.blob();
+            return blob;
+          } catch (error) {
+            console.warn(
+              "Erreur lors de la récupération depuis le cache:",
+              error
+            );
+            // Continuer avec la méthode normale si le cache échoue
+          }
+        }
+      }
+
+      // Méthode normale - télécharger depuis l'URL
+      if (!session.url) {
         console.warn(`Aucune URL disponible pour la session ${sessionId}`);
         return null;
       }
 
-      const response = await fetch(session.url);
+      // Ici nous téléchargeons directement depuis Firebase Storage
+      // ce qui peut causer des problèmes CORS, mais c'est un fallback
+      console.log("Tentative de téléchargement depuis l'URL:", session.url);
+      try {
+        const response = await fetch(session.url);
 
-      if (!response.ok) {
-        throw new Error(
-          `Erreur lors du téléchargement: ${response.statusText}`
+        if (!response.ok) {
+          throw new Error(
+            `Erreur lors du téléchargement: ${response.statusText}`
+          );
+        }
+
+        const blob = await response.blob();
+        console.log(
+          `Audio téléchargé avec succès pour la session ${sessionId}`
         );
+
+        // Stocker en cache local pour éviter les problèmes futurs
+        if (!session.localCacheKey) {
+          const cacheKey = `audio_blob_${sessionId}`;
+          const reader = new FileReader();
+          const base64Promise = new Promise<string>((resolve) => {
+            reader.onloadend = () => {
+              if (typeof reader.result === "string") {
+                resolve(reader.result);
+              }
+            };
+          });
+          reader.readAsDataURL(blob);
+          const base64Data = await base64Promise;
+
+          localStorage.setItem(cacheKey, base64Data);
+          session.localCacheKey = cacheKey;
+          this.saveSessionsToLocalStorage();
+          console.log("Audio mis en cache pour utilisation future");
+        }
+
+        return blob;
+      } catch (corsError) {
+        console.error(
+          "Erreur CORS lors du téléchargement de l'audio:",
+          corsError
+        );
+        console.warn(
+          "L'accès direct à l'URL de Firebase Storage est bloqué par CORS"
+        );
+        return null;
       }
-
-      const blob = await response.blob();
-      console.log(`Audio téléchargé avec succès pour la session ${sessionId}`);
-
-      return blob;
     } catch (error) {
       console.error("Erreur lors du téléchargement de l'audio:", error);
       return null;
@@ -346,6 +448,12 @@ class AudioTransferService {
 
       if (!session) {
         return;
+      }
+
+      // Supprimer du cache local si présent
+      if (session.localCacheKey) {
+        localStorage.removeItem(session.localCacheKey);
+        console.log(`Cache local supprimé: ${session.localCacheKey}`);
       }
 
       // Si l'URL existe, supprimer le fichier de Firebase Storage
