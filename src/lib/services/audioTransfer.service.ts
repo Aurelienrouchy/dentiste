@@ -112,8 +112,8 @@ class AudioTransferService {
       // Utiliser l'ID utilisateur de la session si disponible
       const userIdToUse = userId || session.userId;
 
-      // Déterminer l'extension de fichier en fonction du type MIME
-      const fileExtension = this.getFileExtensionFromBlob(audioBlob);
+      // Utiliser uniquement l'extension webm
+      const fileExtension = "webm";
       const filename = this.getStoragePath(
         userIdToUse,
         sessionId,
@@ -124,9 +124,18 @@ class AudioTransferService {
       console.log(
         `Téléchargement de l'audio pour la session ${sessionId} vers Firebase Storage: ${filename}`
       );
+
       await uploadBytes(storageRef, audioBlob);
 
       const downloadURL = await getDownloadURL(storageRef);
+
+      // Log de diagnostic
+      console.log("=== DIAGNOSTIC INFO ===");
+      console.log("File uploaded to exact path:", filename);
+      console.log("Session ID:", sessionId);
+      console.log("User ID:", userIdToUse || "none");
+      console.log("Download URL:", downloadURL);
+      console.log("=====================");
 
       // Mettre à jour la session avec l'URL
       session.url = downloadURL;
@@ -179,8 +188,10 @@ class AudioTransferService {
     try {
       // Vérifier d'abord en mémoire
       const session = this.sessions.get(sessionId);
-      console.log("session", session);
+      console.log("Session trouvée en mémoire:", session);
+
       if (session && session.status === "completed" && !!session.url) {
+        console.log("Session complète avec URL trouvée en mémoire");
         return true;
       }
 
@@ -189,16 +200,28 @@ class AudioTransferService {
 
       // Si pas en mémoire, essayer de vérifier directement sur Firebase Storage
       try {
-        // Essayer avec différentes extensions possibles
-        const extensions = ["webm", "mp3", "mp4", "wav", "ogg"];
+        // Essayer uniquement avec l'extension webm
+        const extensions = ["webm"];
+
+        console.log(
+          "Vérification dans Firebase Storage pour la session:",
+          sessionId
+        );
+        console.log(
+          "User ID utilisé pour la recherche:",
+          userIdToUse || "aucun"
+        );
 
         for (const ext of extensions) {
           const filename = this.getStoragePath(userIdToUse, sessionId, ext);
+          console.log("Vérification du chemin:", filename);
+
           const storageRef = ref(storage, filename);
 
           try {
             // Si on peut obtenir l'URL, le fichier existe
             const url = await getDownloadURL(storageRef);
+            console.log("Fichier trouvé avec URL:", url);
 
             // Créer ou mettre à jour la session locale
             if (!session) {
@@ -222,8 +245,49 @@ class AudioTransferService {
             return true;
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
           } catch (error) {
-            // Fichier non trouvé avec cette extension, continuer avec la suivante
+            // Fichier non trouvé avec cette extension
+            console.log("Fichier non trouvé au chemin:", filename);
             continue;
+          }
+        }
+
+        // Essayer également sans userId même si on en a un (pour les anciens enregistrements)
+        if (userIdToUse) {
+          const fallbackFilename = this.getStoragePath(
+            undefined,
+            sessionId,
+            "webm"
+          );
+          console.log(
+            "Essai de secours sans userId au chemin:",
+            fallbackFilename
+          );
+
+          try {
+            const fallbackStorageRef = ref(storage, fallbackFilename);
+            const url = await getDownloadURL(fallbackStorageRef);
+            console.log("Fichier trouvé sans userId avec URL:", url);
+
+            // Créer ou mettre à jour la session locale
+            if (!session) {
+              this.sessions.set(sessionId, {
+                id: sessionId,
+                timestamp: Date.now(),
+                status: "completed",
+                url,
+                userId: userIdToUse,
+              });
+            } else {
+              session.status = "completed";
+              session.url = url;
+              session.timestamp = Date.now();
+            }
+
+            this.saveSessionsToLocalStorage();
+            return true;
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          } catch (error) {
+            console.log("Fichier également non trouvé dans le dossier racine");
           }
         }
       } catch (error) {
@@ -232,6 +296,7 @@ class AudioTransferService {
         );
       }
 
+      console.log("Aucun enregistrement trouvé pour la session:", sessionId);
       return false;
     } catch (error) {
       console.error("Erreur dans isRecordingReady:", error);
@@ -374,26 +439,11 @@ class AudioTransferService {
 
   /**
    * Détermine l'extension de fichier en fonction du type MIME
-   * @param blob Blob audio
    * @returns Extension de fichier
    */
-  private getFileExtensionFromBlob(blob: Blob): string {
-    const mimeType = blob.type;
-
-    switch (mimeType) {
-      case "audio/webm":
-        return "webm";
-      case "audio/mp4":
-        return "mp4";
-      case "audio/mpeg":
-        return "mp3";
-      case "audio/ogg":
-        return "ogg";
-      case "audio/wav":
-        return "wav";
-      default:
-        return "webm"; // Extension par défaut
-    }
+  private getFileExtensionFromBlob(_blob: Blob): string {
+    // Toujours retourner webm pour simplifier
+    return "webm";
   }
 
   /**
