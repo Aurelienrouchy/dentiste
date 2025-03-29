@@ -213,6 +213,9 @@ export function MobileRecordQRCode({
         <p className="text-sm text-muted-foreground mt-2 text-center">
           Scannez ce QR code avec votre téléphone pour enregistrer l'audio
         </p>
+        <p className="text-xs text-muted-foreground mt-1 text-center break-all">
+          URL: {qrUrl}
+        </p>
 
         {isPolling && (
           <div className="flex flex-col items-center justify-center mt-2 text-sm text-muted-foreground">
