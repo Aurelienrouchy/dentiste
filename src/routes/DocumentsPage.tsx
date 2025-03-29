@@ -50,8 +50,7 @@ import { PatientService } from "@/lib/services/patient.service";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Patient } from "@/lib/types/patient";
 import { Textarea } from "../components/ui/textarea";
-import { MobileRecordQRCode } from "@/components/MobileRecordQRCode";
-import { MobileRecordExample } from "@/components/MobileRecordExample";
+import { SimplifiedMobileRecord } from "@/components/SimplifiedMobileRecord";
 
 // Schéma de validation pour le formulaire
 const formSchema = z.object({
@@ -72,7 +71,6 @@ export function DocumentsPage() {
   const [documentTemplate, setDocumentTemplate] = useState("");
   const [transcript, setTranscript] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [showQRCode, setShowQRCode] = useState(false);
 
   // Utiliser les hooks personnalisés
   const { user } = useAuth();
@@ -362,6 +360,22 @@ Date de naissance : ${birthDate}
     try {
       const result = await transcribeAudio(audioBlob, "whisper");
       setTranscript(result.text);
+
+      // Générer un document à partir de la transcription si un template existe
+      if (result.text && documentTemplate) {
+        const updatedTemplate = documentTemplate.replace(
+          /\[transcription\]/g,
+          result.text
+        );
+        setGeneratedDocument(updatedTemplate);
+
+        // Mettre à jour le document sélectionné
+        if (documentsService.selectedDocument) {
+          // Au lieu d'essayer de mettre à jour le contenu directement
+          // On met simplement à jour le document généré dans l'interface
+          setGeneratedDocument(updatedTemplate);
+        }
+      }
     } catch (err: unknown) {
       setError(
         err instanceof Error ? err.message : "Erreur lors de la transcription"
@@ -522,17 +536,9 @@ Date de naissance : ${birthDate}
                             {formatTime(recordingTime)}
                           </Badge>
                         )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setShowQRCode(true)}
-                          disabled={
-                            isProcessing || form.getValues("patientId") === ""
-                          }
-                        >
-                          <FileSymlink className="h-4 w-4 mr-2" />
-                          Enregistrer sur mobile
-                        </Button>
+                        <SimplifiedMobileRecord
+                          onAudioReceived={handleMobileAudioReceived}
+                        />
                         <Button
                           variant={isRecording ? "destructive" : "default"}
                           size="sm"
@@ -634,36 +640,12 @@ Date de naissance : ${birthDate}
             </CardContent>
           </Card>
 
-          <Dialog open={showQRCode} onOpenChange={setShowQRCode}>
-            <DialogContent className="sm:max-w-[425px] bg-white">
-              <DialogHeader>
-                <DialogTitle>Enregistrer sur mobile</DialogTitle>
-              </DialogHeader>
-              <div className="flex flex-col items-center space-y-4 py-4">
-                <MobileRecordQRCode
-                  onAudioReceived={handleMobileAudioReceived}
-                />
-              </div>
-            </DialogContent>
-          </Dialog>
-
           <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-4">
             <p className="text-sm text-blue-700">
               <span className="font-medium">Information : </span>
               La transcription audio utilise le modèle Whisper et la génération
               de documents utilise GPT-4 pour garantir les meilleurs résultats.
             </p>
-          </div>
-
-          <div className="mt-8">
-            <h2 className="text-2xl font-semibold mb-4">
-              Enregistrement depuis mobile
-            </h2>
-            <p className="text-muted-foreground mb-4">
-              Utilisez votre téléphone pour enregistrer l'audio, puis traitez-le
-              directement sur votre ordinateur.
-            </p>
-            <MobileRecordExample />
           </div>
         </TabsContent>
 
