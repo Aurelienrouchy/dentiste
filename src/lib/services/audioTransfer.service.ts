@@ -12,6 +12,7 @@ export interface AudioSession {
   timestamp: number;
   url?: string;
   status: "pending" | "completed" | "error";
+  userId?: string;
 }
 
 class AudioTransferService {
@@ -38,15 +39,17 @@ class AudioTransferService {
 
   /**
    * Crée une nouvelle session pour le transfert audio
+   * @param userId ID de l'utilisateur (optionnel)
    * @returns ID de session
    */
-  public createSession(): string {
+  public createSession(userId?: string): string {
     const sessionId = `${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 9)}`;
 
     this.sessions.set(sessionId, {
       id: sessionId,
       timestamp: Date.now(),
       status: "pending",
+      userId,
     });
 
     this.saveSessionsToLocalStorage();
@@ -56,14 +59,34 @@ class AudioTransferService {
   }
 
   /**
+   * Construit le chemin de stockage en fonction de l'utilisateur
+   * @param userId ID de l'utilisateur (optionnel)
+   * @param sessionId ID de la session
+   * @param fileExtension Extension du fichier
+   * @returns Chemin complet pour le stockage
+   */
+  private getStoragePath(
+    userId: string | undefined,
+    sessionId: string,
+    fileExtension: string
+  ): string {
+    if (userId) {
+      return `${this.STORAGE_PATH}/${userId}/${sessionId}.${fileExtension}`;
+    }
+    return `${this.STORAGE_PATH}/${sessionId}.${fileExtension}`;
+  }
+
+  /**
    * Télécharge un enregistrement audio sur Firebase Storage
    * @param sessionId ID de la session
    * @param audioBlob Blob audio
+   * @param userId ID de l'utilisateur (optionnel)
    * @returns Promise avec l'URL de téléchargement
    */
   public async uploadRecording(
     sessionId: string,
-    audioBlob: Blob
+    audioBlob: Blob,
+    userId?: string
   ): Promise<string> {
     try {
       let session = this.sessions.get(sessionId);
@@ -77,18 +100,29 @@ class AudioTransferService {
           id: sessionId,
           timestamp: Date.now(),
           status: "pending",
+          userId,
         };
         this.sessions.set(sessionId, session);
         this.saveSessionsToLocalStorage();
+      } else if (userId && !session.userId) {
+        // Mettre à jour l'ID utilisateur si fourni
+        session.userId = userId;
       }
+
+      // Utiliser l'ID utilisateur de la session si disponible
+      const userIdToUse = userId || session.userId;
 
       // Déterminer l'extension de fichier en fonction du type MIME
       const fileExtension = this.getFileExtensionFromBlob(audioBlob);
-      const filename = `${this.STORAGE_PATH}/${sessionId}.${fileExtension}`;
+      const filename = this.getStoragePath(
+        userIdToUse,
+        sessionId,
+        fileExtension
+      );
       const storageRef = ref(storage, filename);
 
       console.log(
-        `Téléchargement de l'audio pour la session ${sessionId} vers Firebase Storage`
+        `Téléchargement de l'audio pour la session ${sessionId} vers Firebase Storage: ${filename}`
       );
       await uploadBytes(storageRef, audioBlob);
 
@@ -135,9 +169,13 @@ class AudioTransferService {
   /**
    * Vérifie si un enregistrement est disponible pour une session
    * @param sessionId ID de la session
+   * @param userId ID de l'utilisateur (optionnel)
    * @returns true si l'enregistrement est disponible
    */
-  public async isRecordingReady(sessionId: string): Promise<boolean> {
+  public async isRecordingReady(
+    sessionId: string,
+    userId?: string
+  ): Promise<boolean> {
     try {
       // Vérifier d'abord en mémoire
       const session = this.sessions.get(sessionId);
@@ -145,13 +183,16 @@ class AudioTransferService {
         return true;
       }
 
+      // Utiliser l'ID utilisateur de la session si disponible
+      const userIdToUse = userId || session?.userId;
+
       // Si pas en mémoire, essayer de vérifier directement sur Firebase Storage
       try {
         // Essayer avec différentes extensions possibles
         const extensions = ["webm", "mp3", "mp4", "wav", "ogg"];
 
         for (const ext of extensions) {
-          const filename = `${this.STORAGE_PATH}/${sessionId}.${ext}`;
+          const filename = this.getStoragePath(userIdToUse, sessionId, ext);
           const storageRef = ref(storage, filename);
 
           try {
@@ -165,16 +206,21 @@ class AudioTransferService {
                 timestamp: Date.now(),
                 status: "completed",
                 url,
+                userId: userIdToUse,
               });
             } else {
               session.status = "completed";
               session.url = url;
               session.timestamp = Date.now();
+              if (userIdToUse && !session.userId) {
+                session.userId = userIdToUse;
+              }
             }
 
             this.saveSessionsToLocalStorage();
             return true;
-          } catch (_) {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          } catch (error) {
             // Fichier non trouvé avec cette extension, continuer avec la suivante
             continue;
           }
@@ -239,7 +285,11 @@ class AudioTransferService {
       // Si l'URL existe, supprimer le fichier de Firebase Storage
       if (session.url) {
         const fileExtension = this.getFileExtensionFromUrl(session.url);
-        const filename = `${this.STORAGE_PATH}/${sessionId}.${fileExtension}`;
+        const filename = this.getStoragePath(
+          session.userId,
+          sessionId,
+          fileExtension
+        );
         const storageRef = ref(storage, filename);
 
         try {
@@ -367,15 +417,23 @@ class AudioTransferService {
 
   /**
    * Liste tous les enregistrements audio stockés dans Firebase Storage
+   * @param userId ID de l'utilisateur (optionnel)
    * @returns Promise avec un tableau d'objets contenant le nom et l'URL des fichiers
    */
-  public async listAllRecordings(): Promise<{ name: string; url: string }[]> {
+  public async listAllRecordings(
+    userId?: string
+  ): Promise<{ name: string; url: string }[]> {
     try {
-      const folderRef = ref(storage, this.STORAGE_PATH);
+      // Si un userId est fourni, lister uniquement les fichiers de cet utilisateur
+      const folderPath = userId
+        ? `${this.STORAGE_PATH}/${userId}`
+        : this.STORAGE_PATH;
+
+      const folderRef = ref(storage, folderPath);
       const result = await listAll(folderRef);
 
       console.log(
-        `${result.items.length} fichiers trouvés dans le dossier ${this.STORAGE_PATH}`
+        `${result.items.length} fichiers trouvés dans le dossier ${folderPath}`
       );
 
       const files = await Promise.all(
@@ -400,62 +458,6 @@ class AudioTransferService {
         error
       );
       return [];
-    }
-  }
-
-  /**
-   * Vérifie directement l'existence d'un fichier audio dans Firebase Storage
-   * @param sessionId ID de la session
-   * @returns Promise avec l'URL de téléchargement ou null
-   */
-  public async checkDirectStorage(sessionId: string): Promise<string | null> {
-    try {
-      console.log(
-        `Vérification directe du fichier pour la session ${sessionId}`
-      );
-
-      // Essayer directement avec l'extension webm
-      try {
-        const fileRef = ref(storage, `recordings/${sessionId}.webm`);
-        const url = await getDownloadURL(fileRef);
-
-        console.log(`Fichier trouvé directement: ${url}`);
-        return url;
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      } catch (_) {
-        console.log(`Fichier webm non trouvé: ${sessionId}.webm`);
-        // Continuer avec les autres vérifications
-      }
-
-      // Lister tous les fichiers du dossier recordings
-      const folderRef = ref(storage, "recordings");
-      const result = await listAll(folderRef);
-
-      console.log(
-        `${result.items.length} fichiers trouvés dans le dossier recordings`
-      );
-
-      // Rechercher un fichier avec le nom exact, un préfixe ou une sous-chaîne
-      for (const item of result.items) {
-        const fileName = item.name;
-
-        if (
-          fileName === `${sessionId}.webm` ||
-          fileName.startsWith(sessionId) ||
-          fileName.includes(sessionId) ||
-          sessionId.includes(fileName.split(".")[0])
-        ) {
-          console.log(`Fichier correspondant trouvé: ${fileName}`);
-          const url = await getDownloadURL(item);
-          return url;
-        }
-      }
-
-      console.log(`Aucun fichier trouvé pour la session ${sessionId}`);
-      return null;
-    } catch (error) {
-      console.error(`Erreur lors de la vérification directe: ${error}`);
-      return null;
     }
   }
 }

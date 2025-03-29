@@ -3,6 +3,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { RefreshCw, Loader2, FileAudio } from "lucide-react";
 import { audioTransferService } from "@/lib/services/audioTransfer.service";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/hooks/useAuth";
 
 interface MobileRecordQRCodeProps {
   onAudioReceived: (audioBlob: Blob) => void;
@@ -26,12 +27,14 @@ export function MobileRecordQRCode({
   const [recordings, setRecordings] = useState<RecordingFile[]>([]);
   const [showRecordings, setShowRecordings] = useState(false);
   const [isLoadingRecordings, setIsLoadingRecordings] = useState(false);
+  const { user } = useAuth();
+  const userId = user?.uid;
 
   const generateSession = () => {
-    const newSessionId = audioTransferService.createSession();
+    const newSessionId = audioTransferService.createSession(userId);
     setCurrentSessionId(newSessionId);
     setQrUrl(
-      `${window.location.origin}/mobile-record?sessionId=${newSessionId}`
+      `${window.location.origin}/mobile-record?sessionId=${newSessionId}${userId ? `&userId=${userId}` : ""}`
     );
     setPollingCount(0);
     setStatusMessage("En attente d'un enregistrement...");
@@ -47,30 +50,28 @@ export function MobileRecordQRCode({
     setStatusMessage("Vérification de l'ID de session...");
 
     try {
-      // Utiliser la méthode directe pour vérifier l'existence du fichier
-      const url =
-        await audioTransferService.checkDirectStorage(manualSessionId);
+      // Vérifier si l'enregistrement est disponible
+      const isReady = await audioTransferService.isRecordingReady(
+        manualSessionId,
+        userId
+      );
 
-      if (url) {
+      if (isReady) {
         setStatusMessage(
           `Fichier audio trouvé pour la session ${manualSessionId}!`
         );
         try {
-          // Utiliser getRecordingUrl plutôt que getRecording
-          const audioUrl =
-            await audioTransferService.getRecordingUrl(manualSessionId);
-          if (audioUrl) {
-            const response = await fetch(audioUrl);
-            if (response.ok) {
-              const blob = await response.blob();
-              onAudioReceived(blob);
-              setStatusMessage(
-                "Téléchargement réussi. Génération d'une nouvelle session..."
-              );
-              generateSession();
-            } else {
-              setStatusMessage(`Erreur HTTP: ${response.status}`);
-            }
+          // Télécharger l'enregistrement
+          const audioBlob =
+            await audioTransferService.downloadRecording(manualSessionId);
+          if (audioBlob) {
+            onAudioReceived(audioBlob);
+            setStatusMessage(
+              "Téléchargement réussi. Génération d'une nouvelle session..."
+            );
+            generateSession();
+          } else {
+            setStatusMessage("Erreur: Impossible de télécharger l'audio");
           }
         } catch (downloadError: unknown) {
           const errorMessage =
@@ -94,37 +95,7 @@ export function MobileRecordQRCode({
 
   useEffect(() => {
     generateSession();
-  }, []);
-
-  const checkFirebaseStorage = async (): Promise<boolean> => {
-    if (!currentSessionId) return false;
-
-    console.log(
-      `Vérification Firebase Storage pour la session: ${currentSessionId}`
-    );
-
-    try {
-      // Utiliser la méthode directe
-      const url =
-        await audioTransferService.checkDirectStorage(currentSessionId);
-
-      if (url) {
-        console.log("Audio trouvé directement dans Firebase Storage");
-        setIsPolling(false);
-        return true;
-      }
-
-      console.log(
-        "Aucun audio trouvé directement, passage à la vérification normale"
-      );
-      // Continuer avec la logique existante si nécessaire
-
-      return false;
-    } catch (error: unknown) {
-      console.error("Erreur lors de la vérification Firebase Storage:", error);
-      return false;
-    }
-  };
+  }, [userId]);
 
   // Polling pour vérifier si l'audio est disponible
   useEffect(() => {
@@ -144,9 +115,11 @@ export function MobileRecordQRCode({
           console.log(`Session actuelle: "${currentSessionId}"`);
         }
 
-        // Méthode 1 : Vérifier via notre service
-        const isReady =
-          await audioTransferService.isRecordingReady(currentSessionId);
+        // Vérifier si l'enregistrement est prêt
+        const isReady = await audioTransferService.isRecordingReady(
+          currentSessionId,
+          userId
+        );
 
         if (isReady) {
           setStatusMessage("Enregistrement trouvé, téléchargement en cours...");
@@ -154,44 +127,11 @@ export function MobileRecordQRCode({
             await audioTransferService.downloadRecording(currentSessionId);
 
           if (audioBlob) {
-            console.log("Audio téléchargé avec succès via service");
+            console.log("Audio téléchargé avec succès");
             onAudioReceived(audioBlob);
             setIsPolling(false);
             generateSession();
             return;
-          }
-        }
-
-        // Méthode 2 : Vérifier directement dans Firebase Storage
-        setStatusMessage("Recherche directe dans Firebase Storage...");
-        const success = await checkFirebaseStorage();
-
-        if (success) {
-          setStatusMessage("Fichier trouvé, téléchargement en cours...");
-
-          try {
-            // Récupérer l'URL de téléchargement
-            const audioUrl = await audioTransferService.getRecordingUrl(
-              currentSessionId!
-            );
-            if (audioUrl) {
-              const response = await fetch(audioUrl);
-              if (response.ok) {
-                const blob = await response.blob();
-                console.log("Audio téléchargé avec succès via Firebase direct");
-                onAudioReceived(blob);
-                setIsPolling(false);
-                generateSession();
-                return;
-              } else {
-                console.error(
-                  "Erreur lors du téléchargement:",
-                  response.statusText
-                );
-              }
-            }
-          } catch (error) {
-            console.error("Erreur lors du téléchargement:", error);
           }
         }
 
@@ -227,13 +167,13 @@ export function MobileRecordQRCode({
       clearInterval(interval);
       setIsPolling(false);
     };
-  }, [currentSessionId, onAudioReceived, pollingCount]);
+  }, [currentSessionId, onAudioReceived, pollingCount, userId]);
 
   // Fonction pour charger tous les enregistrements
   const loadAllRecordings = async () => {
     setIsLoadingRecordings(true);
     try {
-      const files = await audioTransferService.listAllRecordings();
+      const files = await audioTransferService.listAllRecordings(userId);
       setRecordings(files);
       setShowRecordings(true);
     } catch (error) {
@@ -348,7 +288,7 @@ export function MobileRecordQRCode({
           </div>
           <p className="text-xs text-muted-foreground mt-1">
             Cette fonction permet de vérifier directement l'existence d'un
-            fichier audio spécifique dans Firebase Storage.
+            fichier audio associé à une session.
           </p>
         </div>
       )}
