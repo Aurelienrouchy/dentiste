@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { MobileRecordButton } from "./MobileRecordButton";
+import { MobileRecordQRCode } from "./MobileRecordQRCode";
 import { Button } from "@/components/ui/button";
 import { PlayCircle, PauseCircle, CheckCircle } from "lucide-react";
 import { useAIService } from "@/lib/services/ai.service";
@@ -69,7 +69,7 @@ export function MobileRecordExample() {
 
       {!audioBlob ? (
         <div className="flex justify-center">
-          <MobileRecordButton onAudioReceived={handleAudioReceived} />
+          <MobileRecordQRCode onAudioReceived={handleAudioReceived} />
         </div>
       ) : (
         <div className="space-y-4">
