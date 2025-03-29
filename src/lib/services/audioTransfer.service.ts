@@ -179,6 +179,7 @@ class AudioTransferService {
     try {
       // Vérifier d'abord en mémoire
       const session = this.sessions.get(sessionId);
+      console.log("session", session);
       if (session && session.status === "completed" && !!session.url) {
         return true;
       }
