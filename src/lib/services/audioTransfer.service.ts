@@ -384,10 +384,12 @@ class AudioTransferService {
         return null;
       }
 
-      // Ici nous téléchargeons directement depuis Firebase Storage
-      // ce qui peut causer des problèmes CORS, mais c'est un fallback
-      console.log("Tentative de téléchargement depuis l'URL:", session.url);
+      // On essaie d'abord sans l'option no-cors
       try {
+        console.log(
+          "Tentative de téléchargement standard depuis:",
+          session.url
+        );
         const response = await fetch(session.url);
 
         if (!response.ok) {
@@ -400,37 +402,33 @@ class AudioTransferService {
         console.log(
           `Audio téléchargé avec succès pour la session ${sessionId}`
         );
-
-        // Stocker en cache local pour éviter les problèmes futurs
-        if (!session.localCacheKey) {
-          const cacheKey = `audio_blob_${sessionId}`;
-          const reader = new FileReader();
-          const base64Promise = new Promise<string>((resolve) => {
-            reader.onloadend = () => {
-              if (typeof reader.result === "string") {
-                resolve(reader.result);
-              }
-            };
-          });
-          reader.readAsDataURL(blob);
-          const base64Data = await base64Promise;
-
-          localStorage.setItem(cacheKey, base64Data);
-          session.localCacheKey = cacheKey;
-          this.saveSessionsToLocalStorage();
-          console.log("Audio mis en cache pour utilisation future");
-        }
-
         return blob;
       } catch (corsError) {
-        console.error(
-          "Erreur CORS lors du téléchargement de l'audio:",
+        console.warn(
+          "Erreur CORS détectée, tentative avec no-cors:",
           corsError
         );
-        console.warn(
-          "L'accès direct à l'URL de Firebase Storage est bloqué par CORS"
-        );
-        return null;
+
+        try {
+          // Essai avec l'option no-cors pour contourner CORS
+          // Note: ceci donnera une réponse "opaque", avec des limitations
+          const corsProxyUrl =
+            "https://corsproxy.io/?" + encodeURIComponent(session.url);
+          console.log("Tentative via proxy CORS:", corsProxyUrl);
+
+          const response = await fetch(corsProxyUrl);
+
+          if (!response.ok) {
+            throw new Error(`Erreur proxy: ${response.statusText}`);
+          }
+
+          const blob = await response.blob();
+          console.log("Audio téléchargé avec succès via proxy CORS");
+          return blob;
+        } catch (proxyError) {
+          console.error("Échec du proxy CORS:", proxyError);
+          return null;
+        }
       }
     } catch (error) {
       console.error("Erreur lors du téléchargement de l'audio:", error);
