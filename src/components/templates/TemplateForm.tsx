@@ -10,13 +10,19 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { TemplateEditor } from "./TemplateEditor";
-import { DocumentTemplate } from "@/lib/services/template.service";
+import {
+  DocumentTemplate,
+  TemplateService,
+} from "@/lib/services/template.service";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { useEffect } from "react";
 
 const templateSchema = z.object({
   title: z
@@ -27,10 +33,8 @@ const templateSchema = z.object({
   }),
   content: z
     .string()
-    .min(20, { message: "Le contenu doit contenir au moins 20 caractères" })
-    .refine((val) => val.includes("[transcription]"), {
-      message: "Le contenu doit inclure la balise [transcription]",
-    }),
+    .min(20, { message: "Le contenu doit contenir au moins 20 caractères" }),
+  type: z.enum(["normal", "pdf"]),
 });
 
 type TemplateFormValues = z.infer<typeof templateSchema>;
@@ -53,6 +57,7 @@ export function TemplateForm({
     defaultValues: {
       title: template?.title || "",
       description: template?.description || "",
+      type: template?.type || "normal",
       content:
         template?.content ||
         `
@@ -75,17 +80,53 @@ Date de naissance: [date_naissance]</p>
     },
   });
 
+  // Extraire et afficher les champs PDF lorsque le contenu change et que c'est un template PDF
+  const content = form.watch("content");
+  const templateType = form.watch("type");
+  const isTemplateTypePdf = templateType === "pdf";
+
+  useEffect(() => {
+    if (isTemplateTypePdf && content) {
+      const fields = TemplateService.extractPdfFields(content);
+      console.log("Champs PDF détectés:", fields);
+    }
+  }, [content, isTemplateTypePdf]);
+
   const handleSubmit = async (values: TemplateFormValues) => {
     console.log(
       "Soumission du formulaire de template avec les valeurs:",
       values
     );
+
+    // Si c'est un template PDF, extrait les champs
+    if (values.type === "pdf") {
+      const fields = TemplateService.extractPdfFields(values.content);
+      console.log("Champs PDF extraits:", fields);
+
+      // Ajout des champs à l'objet values avant de l'envoyer
+      const valuesWithFields = {
+        ...values,
+        pdfFields: fields,
+      };
+
+      await onSave(valuesWithFields);
+      console.log("Template sauvegardé avec succès");
+      return;
+    }
+
     try {
       await onSave(values);
       console.log("Template sauvegardé avec succès");
     } catch (error) {
       console.error("Erreur lors de la sauvegarde du template:", error);
     }
+  };
+
+  const getTemplateContentPlaceholder = () => {
+    if (isTemplateTypePdf) {
+      return "Contenu du template PDF avec des champs dynamiques entre crochets comme [nom_patient], [date], etc.";
+    }
+    return "Contenu du template...";
   };
 
   return (
@@ -138,6 +179,46 @@ Date de naissance: [date_naissance]</p>
 
             <FormField
               control={form.control}
+              name="type"
+              render={({ field }) => (
+                <FormItem className="space-y-3">
+                  <FormLabel>Type de template</FormLabel>
+                  <FormControl>
+                    <RadioGroup
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                      className="flex flex-col space-y-1"
+                    >
+                      <FormItem className="flex items-center space-x-3 space-y-0">
+                        <FormControl>
+                          <RadioGroupItem value="normal" />
+                        </FormControl>
+                        <FormLabel className="font-normal">
+                          Template standard
+                        </FormLabel>
+                      </FormItem>
+                      <FormItem className="flex items-center space-x-3 space-y-0">
+                        <FormControl>
+                          <RadioGroupItem value="pdf" />
+                        </FormControl>
+                        <FormLabel className="font-normal">
+                          Template PDF
+                        </FormLabel>
+                      </FormItem>
+                    </RadioGroup>
+                  </FormControl>
+                  <FormDescription>
+                    {isTemplateTypePdf
+                      ? "Les templates PDF peuvent contenir des champs dynamiques entre crochets (ex: [nom_patient])."
+                      : "Les templates standards sont utilisés pour la génération de documents."}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
               name="content"
               render={({ field }) => (
                 <FormItem>
@@ -146,13 +227,29 @@ Date de naissance: [date_naissance]</p>
                     <TemplateEditor
                       content={field.value}
                       onChange={field.onChange}
-                      placeholder="Contenu du template..."
+                      placeholder={getTemplateContentPlaceholder()}
                     />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
+
+            {isTemplateTypePdf && content && (
+              <div className="bg-gray-50 p-3 rounded-md border">
+                <h4 className="text-sm font-medium mb-2">Champs détectés:</h4>
+                <div className="flex flex-wrap gap-2">
+                  {TemplateService.extractPdfFields(content).map((field) => (
+                    <div
+                      key={field}
+                      className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full"
+                    >
+                      {field}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </CardContent>
 
           <CardFooter className="flex justify-end">
