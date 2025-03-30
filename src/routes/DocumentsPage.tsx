@@ -716,7 +716,15 @@ Date de naissance : ${birthDate}
                       <div className="mt-4">
                         <h4 className="font-medium mb-2">Document généré</h4>
                         <div className="border rounded-md p-3 bg-white">
-                          <div className="text-sm document-container">
+                          <div
+                            className="text-sm document-container pdf-preview"
+                            style={{
+                              backgroundColor: "white",
+                              padding: "15px",
+                              minHeight: "500px",
+                              overflow: "auto",
+                            }}
+                          >
                             {parse(cleanHtml(generatedDocument))}
                           </div>
                         </div>
@@ -816,7 +824,15 @@ Date de naissance : ${birthDate}
                   </DialogTitle>
                 </DialogHeader>
                 <div className="border rounded-md p-4 my-4 bg-white">
-                  <div className="document-container">
+                  <div
+                    className="document-container pdf-preview"
+                    style={{
+                      backgroundColor: "white",
+                      padding: "15px",
+                      minHeight: "500px",
+                      overflow: "auto",
+                    }}
+                  >
                     {parse(
                       cleanHtml(documentsService.selectedDocument.content)
                     )}
