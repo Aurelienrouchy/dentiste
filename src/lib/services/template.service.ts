@@ -30,214 +30,260 @@ export interface DocumentTemplate {
   updatedAt: Date;
   isSystem?: boolean;
   imageUrls?: string[]; // URLs des images utilisées dans le template
-  type?: "normal" | "pdf"; // Type de template: normal ou pdf
   pdfFields?: string[]; // Champs dynamiques disponibles dans le template PDF
 }
 
 export class TemplateService {
+  // Collection principale pour les templates système
+  private static readonly SYSTEM_TEMPLATES_COLLECTION = "documentTemplates";
+  // Collection pour les templates des utilisateurs
+  private static readonly USER_TEMPLATES_COLLECTION = "userTemplates";
+
   static async getTemplates(userId: string): Promise<DocumentTemplate[]> {
     try {
+      console.log("Début récupération templates pour", userId);
+
       // Obtenir les templates système (communs à tous les utilisateurs)
       const systemTemplatesQuery = query(
-        collection(db, "documentTemplates"),
+        collection(db, this.SYSTEM_TEMPLATES_COLLECTION),
         where("isSystem", "==", true),
         orderBy("title")
       );
       const systemTemplatesSnapshot = await getDocs(systemTemplatesQuery);
+      console.log("Templates système trouvés:", systemTemplatesSnapshot.size);
 
-      // Obtenir les templates spécifiques à l'utilisateur
+      // Obtenir les templates spécifiques à l'utilisateur depuis sa sous-collection
       const userTemplatesQuery = query(
-        collection(db, "documentTemplates"),
-        where("userId", "==", userId),
+        collection(db, this.USER_TEMPLATES_COLLECTION, userId, "templates"),
         orderBy("title")
       );
       const userTemplatesSnapshot = await getDocs(userTemplatesQuery);
+      console.log("Templates utilisateur trouvés:", userTemplatesSnapshot.size);
 
       // Combiner les deux ensembles de templates
       const templates: DocumentTemplate[] = [];
 
       systemTemplatesSnapshot.forEach((doc) => {
-        const data = doc.data();
-        templates.push({
-          id: doc.id,
-          userId: data.userId,
-          title: data.title,
-          description: data.description,
-          content: data.content,
-          createdAt: data.createdAt.toDate(),
-          updatedAt: data.updatedAt.toDate(),
-          isSystem: true,
-          imageUrls: data.imageUrls || [],
-          type: data.type || "normal",
-          pdfFields: data.pdfFields || [],
-        });
+        try {
+          const data = doc.data();
+          templates.push({
+            id: doc.id,
+            userId: data.userId,
+            title: data.title,
+            description: data.description,
+            content: data.content,
+            createdAt: data.createdAt?.toDate() || new Date(),
+            updatedAt: data.updatedAt?.toDate() || new Date(),
+            isSystem: true,
+            imageUrls: data.imageUrls || [],
+            pdfFields: data.pdfFields || [],
+          });
+        } catch (err) {
+          console.error("Erreur traitement template système:", doc.id, err);
+        }
       });
 
       userTemplatesSnapshot.forEach((doc) => {
-        const data = doc.data();
-        templates.push({
-          id: doc.id,
-          userId: data.userId,
-          title: data.title,
-          description: data.description,
-          content: data.content,
-          createdAt: data.createdAt.toDate(),
-          updatedAt: data.updatedAt.toDate(),
-          isSystem: false,
-          imageUrls: data.imageUrls || [],
-          type: data.type || "normal",
-          pdfFields: data.pdfFields || [],
-        });
+        try {
+          const data = doc.data();
+          console.log("Données brutes template utilisateur:", doc.id, data);
+          templates.push({
+            id: doc.id,
+            userId: data.userId || userId, // Assurer que userId est toujours défini
+            title: data.title || "Sans titre",
+            description: data.description || "",
+            content: data.content || "",
+            createdAt: data.createdAt?.toDate() || new Date(),
+            updatedAt: data.updatedAt?.toDate() || new Date(),
+            isSystem: false,
+            imageUrls: data.imageUrls || [],
+            pdfFields: data.pdfFields || [],
+          });
+        } catch (err) {
+          console.error("Erreur traitement template utilisateur:", doc.id, err);
+        }
       });
 
+      console.log("Total templates récupérés:", templates.length);
       return templates;
     } catch (error) {
-      console.error("Erreur lors de la récupération des templates:", error);
+      console.error("Erreur récupération templates:", error);
       throw error;
     }
   }
 
   static async getPdfTemplates(userId: string): Promise<DocumentTemplate[]> {
-    try {
-      const templates = await this.getTemplates(userId);
-      return templates.filter((template) => template.type === "pdf");
-    } catch (error) {
-      console.error("Erreur lors de la récupération des templates PDF:", error);
-      throw error;
-    }
+    const templates = await this.getTemplates(userId);
+    return templates;
   }
 
   static async getTemplate(
-    templateId: string
+    templateId: string,
+    userId?: string
   ): Promise<DocumentTemplate | null> {
-    try {
-      const templateDoc = await getDoc(
-        doc(db, "documentTemplates", templateId)
+    // Vérifier d'abord dans les templates système
+    let templateDoc = await getDoc(
+      doc(db, this.SYSTEM_TEMPLATES_COLLECTION, templateId)
+    );
+
+    // Si non trouvé et userId fourni, chercher dans les templates de l'utilisateur
+    if (!templateDoc.exists() && userId) {
+      templateDoc = await getDoc(
+        doc(db, this.USER_TEMPLATES_COLLECTION, userId, "templates", templateId)
       );
-
-      if (templateDoc.exists()) {
-        const data = templateDoc.data();
-        return {
-          id: templateDoc.id,
-          userId: data.userId,
-          title: data.title,
-          description: data.description,
-          content: data.content,
-          createdAt: data.createdAt.toDate(),
-          updatedAt: data.updatedAt.toDate(),
-          isSystem: data.isSystem || false,
-          imageUrls: data.imageUrls || [],
-          type: data.type || "normal",
-          pdfFields: data.pdfFields || [],
-        };
-      }
-
-      return null;
-    } catch (error) {
-      console.error("Erreur lors de la récupération du template:", error);
-      throw error;
     }
+
+    if (templateDoc.exists()) {
+      const data = templateDoc.data();
+      return {
+        id: templateDoc.id,
+        userId: data.userId,
+        title: data.title,
+        description: data.description,
+        content: data.content,
+        createdAt: data.createdAt.toDate(),
+        updatedAt: data.updatedAt.toDate(),
+        isSystem: data.isSystem || false,
+        imageUrls: data.imageUrls || [],
+        pdfFields: data.pdfFields || [],
+      };
+    }
+
+    return null;
   }
 
   static async createTemplate(
     template: Omit<DocumentTemplate, "id" | "createdAt" | "updatedAt">
   ): Promise<string> {
-    try {
-      console.log(
-        "TemplateService.createTemplate - Début de la création du template:",
-        template.title
-      );
-      console.log(
-        "Contenu du template (premiers 200 caractères):",
-        template.content.substring(0, 200) + "..."
-      );
+    // Extraire les URLs d'images du contenu HTML
+    const imageUrls =
+      template.imageUrls || this.extractImageUrls(template.content);
 
-      // Extraire les URLs d'images du contenu HTML
-      const imageUrls =
-        template.imageUrls || this.extractImageUrls(template.content);
-      console.log("Images extraites:", imageUrls);
+    const newTemplate = {
+      ...template,
+      imageUrls,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
 
-      const newTemplate = {
-        ...template,
-        imageUrls,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      };
-
-      console.log("Prêt à ajouter le document à Firestore avec ces données:", {
-        title: newTemplate.title,
-        description: newTemplate.description,
-        userId: newTemplate.userId,
-        imageUrls: newTemplate.imageUrls,
-      });
-
-      const docRef = await addDoc(
-        collection(db, "documentTemplates"),
+    // Chemin de collection approprié en fonction du type de template
+    let docRef;
+    if (template.isSystem) {
+      docRef = await addDoc(
+        collection(db, this.SYSTEM_TEMPLATES_COLLECTION),
         newTemplate
       );
-      console.log("Document ajouté avec succès avec l'ID:", docRef.id);
-      return docRef.id;
-    } catch (error) {
-      console.error("Erreur détaillée lors de la création du template:", error);
-      throw error;
+    } else {
+      // Stocker dans la sous-collection de l'utilisateur
+      docRef = await addDoc(
+        collection(
+          db,
+          this.USER_TEMPLATES_COLLECTION,
+          template.userId,
+          "templates"
+        ),
+        newTemplate
+      );
     }
+
+    return docRef.id;
   }
 
   static async updateTemplate(
     templateId: string,
-    template: Partial<Omit<DocumentTemplate, "id" | "createdAt" | "updatedAt">>
+    updates: Partial<DocumentTemplate>,
+    userId?: string
   ): Promise<boolean> {
-    try {
-      const templateRef = doc(db, "documentTemplates", templateId);
+    // Données à mettre à jour
+    const updateData = {
+      ...updates,
+      updatedAt: serverTimestamp(),
+    };
 
-      // Si le contenu a été mis à jour, extraire les nouvelles URLs d'images
-      let imageUrls = template.imageUrls;
-      if (template.content) {
-        imageUrls = this.extractImageUrls(template.content);
+    // Trouver où le template est stocké
+    let templateRef;
+
+    // Si c'est un template système
+    if (updates.isSystem) {
+      templateRef = doc(db, this.SYSTEM_TEMPLATES_COLLECTION, templateId);
+    }
+    // Si c'est un template utilisateur et que l'ID utilisateur est fourni
+    else if (userId) {
+      templateRef = doc(
+        db,
+        this.USER_TEMPLATES_COLLECTION,
+        userId,
+        "templates",
+        templateId
+      );
+    }
+    // Si nous ne savons pas où chercher, essayer de récupérer d'abord le template
+    else {
+      const template = await this.getTemplate(templateId);
+      if (!template) {
+        throw new Error(`Template ${templateId} non trouvé`);
       }
 
-      await updateDoc(templateRef, {
-        ...template,
-        imageUrls,
-        updatedAt: serverTimestamp(),
-      });
-
-      return true;
-    } catch (error) {
-      console.error("Erreur lors de la mise à jour du template:", error);
-      throw error;
-    }
-  }
-
-  static async deleteTemplate(templateId: string): Promise<boolean> {
-    try {
-      // Récupérer le template pour avoir les URLs des images
-      const template = await this.getTemplate(templateId);
-
-      // Supprimer les images stockées dans Firebase Storage
-      if (template && template.imageUrls && template.imageUrls.length > 0) {
-        await Promise.all(
-          template.imageUrls.map((url) => {
-            // Extraire le chemin de l'URL
-            const imagePath = this.getImagePathFromUrl(url);
-            if (imagePath) {
-              const imageRef = ref(storage, imagePath);
-              return deleteObject(imageRef).catch((error) => {
-                console.warn(`Impossible de supprimer l'image ${url}:`, error);
-              });
-            }
-            return Promise.resolve();
-          })
+      if (template.isSystem) {
+        templateRef = doc(db, this.SYSTEM_TEMPLATES_COLLECTION, templateId);
+      } else {
+        templateRef = doc(
+          db,
+          this.USER_TEMPLATES_COLLECTION,
+          template.userId,
+          "templates",
+          templateId
         );
       }
-
-      // Supprimer le document du template
-      await deleteDoc(doc(db, "documentTemplates", templateId));
-      return true;
-    } catch (error) {
-      console.error("Erreur lors de la suppression du template:", error);
-      throw error;
     }
+
+    await updateDoc(templateRef, updateData);
+    return true;
+  }
+
+  static async deleteTemplate(
+    templateId: string,
+    userId?: string
+  ): Promise<boolean> {
+    // Récupérer le template pour avoir les URLs des images et savoir où il est stocké
+    const template = await this.getTemplate(templateId, userId);
+    if (!template) {
+      return false;
+    }
+
+    // Supprimer les images stockées dans Firebase Storage
+    if (template.imageUrls && template.imageUrls.length > 0) {
+      await Promise.all(
+        template.imageUrls.map((url) => {
+          // Extraire le chemin de l'URL
+          const imagePath = this.getImagePathFromUrl(url);
+          if (imagePath) {
+            const imageRef = ref(storage, imagePath);
+            return deleteObject(imageRef).catch(() => {
+              // Ignorer l'erreur et continuer
+            });
+          }
+          return Promise.resolve();
+        })
+      );
+    }
+
+    // Supprimer le document du template
+    if (template.isSystem) {
+      await deleteDoc(doc(db, this.SYSTEM_TEMPLATES_COLLECTION, templateId));
+    } else {
+      await deleteDoc(
+        doc(
+          db,
+          this.USER_TEMPLATES_COLLECTION,
+          template.userId,
+          "templates",
+          templateId
+        )
+      );
+    }
+
+    return true;
   }
 
   /**
@@ -247,102 +293,61 @@ export class TemplateService {
    * @returns URL de l'image téléchargée
    */
   static async uploadImage(file: File, userId: string): Promise<string> {
-    try {
-      console.log("Début du téléchargement d'image:", {
-        fileName: file.name,
-        fileSize: file.size,
-        fileType: file.type,
-      });
+    // Générer un nom de fichier unique
+    const fileName = `${Date.now()}_${uuidv4()}_${file.name.replace(/[^a-zA-Z0-9.]/g, "_")}`;
 
-      // Générer un nom de fichier unique
-      const fileName = `${Date.now()}_${uuidv4()}_${file.name.replace(/[^a-zA-Z0-9.]/g, "_")}`;
-      console.log("Nom de fichier généré:", fileName);
+    // Créer une référence à l'emplacement où sera stockée l'image
+    const storagePath = `templates/${userId}/${fileName}`;
+    const imageRef = ref(storage, storagePath);
 
-      // Créer une référence à l'emplacement où sera stockée l'image
-      const storagePath = `templates/${userId}/${fileName}`;
-      console.log("Chemin de stockage:", storagePath);
-      const imageRef = ref(storage, storagePath);
+    // Télécharger le fichier
+    const snapshot = await uploadBytes(imageRef, file);
 
-      // Télécharger le fichier
-      console.log("Début du téléchargement vers Firebase Storage...");
-      const snapshot = await uploadBytes(imageRef, file);
-      console.log("Téléchargement terminé:", snapshot.metadata);
+    // Obtenir l'URL de téléchargement
+    const downloadUrl = await getDownloadURL(snapshot.ref);
 
-      // Obtenir l'URL de téléchargement
-      console.log("Récupération de l'URL de téléchargement...");
-      const downloadUrl = await getDownloadURL(snapshot.ref);
-      console.log("URL de téléchargement obtenue:", downloadUrl);
-
-      return downloadUrl;
-    } catch (error) {
-      console.error(
-        "Erreur détaillée lors du téléchargement de l'image:",
-        error
-      );
-      throw error;
-    }
+    return downloadUrl;
   }
 
   /**
-   * Extrait les URLs d'images d'un contenu HTML
-   * @param content Contenu HTML du template
-   * @returns Liste des URLs d'images trouvées
+   * Extrait les URLs d'images du contenu HTML
+   * @param htmlContent Contenu HTML
+   * @returns Tableau d'URLs d'images
    */
-  private static extractImageUrls(content: string): string[] {
-    if (!content || typeof content !== "string") {
-      console.error("Contenu invalide dans extractImageUrls:", content);
-      return [];
-    }
-
+  private static extractImageUrls(htmlContent: string): string[] {
     try {
-      console.log(
-        "Extraction des URLs d'images à partir du contenu:",
-        content.substring(0, 100) + "..."
-      );
+      if (!htmlContent) return [];
+
+      const imgRegex = /<img[^>]+src="([^">]+)"/g;
       const urls: string[] = [];
-      const regex = /<img[^>]+src="([^">]+)"/g;
       let match;
 
-      while ((match = regex.exec(content)) !== null) {
-        if (match[1]) {
-          if (!match[1].startsWith("data:")) {
-            // Ignorer les images en base64
-            console.log("URL d'image trouvée:", match[1]);
-            urls.push(match[1]);
-          } else {
-            console.log("Image en base64 ignorée");
-          }
+      while ((match = imgRegex.exec(htmlContent)) !== null) {
+        if (match[1] && match[1].startsWith("https://")) {
+          urls.push(match[1]);
         }
       }
 
-      console.log(`Total des URLs d'images extraites: ${urls.length}`);
-      return urls;
-    } catch (error) {
-      console.error("Erreur lors de l'extraction des URLs d'images:", error);
+      return [...new Set(urls)]; // Éliminer les doublons
+    } catch {
       return [];
     }
   }
 
   /**
-   * Extrait le chemin de l'image à partir de son URL
-   * @param url URL de l'image stockée dans Firebase Storage
-   * @returns Chemin de l'image dans Firebase Storage
+   * Extrait le chemin de stockage à partir d'une URL Firebase Storage
+   * @param url URL Firebase Storage
+   * @returns Chemin de stockage
    */
   private static getImagePathFromUrl(url: string): string | null {
     try {
-      // Exemple d'URL Firebase Storage:
-      // https://firebasestorage.googleapis.com/v0/b/dentiste-12345.appspot.com/o/templates%2Fuser123%2Fimage.jpg?alt=media&token=abc-xyz
-
-      const pathRegex = /\/o\/([^?]+)\?/;
-      const match = url.match(pathRegex);
-
+      // Format typique: https://firebasestorage.googleapis.com/v0/b/[bucket]/o/[encodedPath]?token=...
+      const match = url.match(/\/o\/([^?]+)/);
       if (match && match[1]) {
         return decodeURIComponent(match[1]);
       }
-
       return null;
-    } catch (error) {
-      console.error("Erreur lors de l'extraction du chemin de l'image:", error);
+    } catch {
       return null;
     }
   }
@@ -365,11 +370,7 @@ export class TemplateService {
       }
 
       return Array.from(fields);
-    } catch (error) {
-      console.error(
-        "Erreur lors de l'extraction des champs du template PDF:",
-        error
-      );
+    } catch {
       return [];
     }
   }
@@ -393,8 +394,7 @@ export class TemplateService {
       });
 
       return processedContent;
-    } catch (error) {
-      console.error("Erreur lors de la génération du PDF:", error);
+    } catch {
       return template.content;
     }
   }

@@ -157,7 +157,8 @@ export default function PatientsPage() {
     return (
       patient.firstName.toLowerCase().includes(searchTermLower) ||
       patient.lastName.toLowerCase().includes(searchTermLower) ||
-      (patient.email && patient.email.toLowerCase().includes(searchTermLower)) ||
+      (patient.email &&
+        patient.email.toLowerCase().includes(searchTermLower)) ||
       (patient.phoneNumber &&
         patient.phoneNumber.toLowerCase().includes(searchTermLower))
     );
@@ -257,7 +258,7 @@ export default function PatientsPage() {
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </AlertDialogTrigger>
-                          <AlertDialogContent>
+                          <AlertDialogContent className="bg-white">
                             <AlertDialogHeader>
                               <AlertDialogTitle>
                                 Supprimer le patient
@@ -298,4 +299,4 @@ export default function PatientsPage() {
       />
     </div>
   );
-} 
+}

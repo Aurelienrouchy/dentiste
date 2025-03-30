@@ -544,15 +544,6 @@ class AudioTransferService {
   }
 
   /**
-   * Détermine l'extension de fichier en fonction du type MIME
-   * @returns Extension de fichier
-   */
-  private getFileExtensionFromBlob(_blob: Blob): string {
-    // Toujours retourner webm pour simplifier
-    return "webm";
-  }
-
-  /**
    * Extrait l'extension de fichier depuis une URL
    * @param url URL du fichier
    * @returns Extension de fichier

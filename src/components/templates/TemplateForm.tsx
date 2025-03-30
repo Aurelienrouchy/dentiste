@@ -10,19 +10,18 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-  FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { TemplateEditor } from "./TemplateEditor";
+import { CanvasEditor } from "./CanvasEditor";
 import {
   DocumentTemplate,
   TemplateService,
 } from "@/lib/services/template.service";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useAuth } from "@/lib/hooks/useAuth";
 
 const templateSchema = z.object({
   title: z
@@ -34,99 +33,195 @@ const templateSchema = z.object({
   content: z
     .string()
     .min(20, { message: "Le contenu doit contenir au moins 20 caractères" }),
-  type: z.enum(["normal", "pdf"]),
 });
 
 type TemplateFormValues = z.infer<typeof templateSchema>;
 
+interface CanvasElement {
+  id: string;
+  type: "text" | "image" | "variable" | "logo";
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
+  content: string;
+  style?: {
+    fontSize?: number;
+    fontWeight?: string;
+    color?: string;
+    fontFamily?: string;
+  };
+  isVariable?: boolean;
+  isLogo?: boolean;
+  isEditing?: boolean;
+}
+
 interface TemplateFormProps {
-  template?: DocumentTemplate;
-  onSave: (values: TemplateFormValues) => Promise<void>;
+  initialData?: DocumentTemplate | null;
+  onSubmit: (
+    values: TemplateFormValues & { pdfFields?: string[] }
+  ) => Promise<void>;
+  onCancel: () => void;
   isLoading?: boolean;
   error?: string | null;
 }
 
 export function TemplateForm({
-  template,
-  onSave,
+  initialData,
+  onSubmit,
+  onCancel,
   isLoading = false,
   error = null,
 }: TemplateFormProps) {
+  const [canvasElements, setCanvasElements] = useState<CanvasElement[]>([]);
+  const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
+  const { user } = useAuth();
+
   const form = useForm<TemplateFormValues>({
     resolver: zodResolver(templateSchema),
     defaultValues: {
-      title: template?.title || "",
-      description: template?.description || "",
-      type: template?.type || "normal",
+      title: initialData?.title || "",
+      description: initialData?.description || "",
       content:
-        template?.content ||
+        initialData?.content ||
         `
-<h2>Template de document</h2>
-<p>Date: [date]</p>
-
-<h3>Dentiste</h3>
-<p>Dr. Aurelien Rouchy<br>
-Rue Marcadet, 201<br>
-75018 PARIS 18<br>
-+33 7 73 78 56 85<br>
-rouchy.aurelien@gmail.com</p>
-
-<h3>Patient</h3>
-<p>[nom_patient]<br>
-Date de naissance: [date_naissance]</p>
-
-<p>[transcription]</p>
+<div class="canvas-template" data-canvas-json="[]">
+  <!-- Template de document par défaut -->
+</div>
       `.trim(),
     },
   });
 
-  // Extraire et afficher les champs PDF lorsque le contenu change et que c'est un template PDF
-  const content = form.watch("content");
-  const templateType = form.watch("type");
-  const isTemplateTypePdf = templateType === "pdf";
-
+  // Charger le logo depuis localStorage
   useEffect(() => {
-    if (isTemplateTypePdf && content) {
-      const fields = TemplateService.extractPdfFields(content);
-      console.log("Champs PDF détectés:", fields);
+    if (user) {
+      const savedLogoUrl = localStorage.getItem(
+        `practitioner_logo_${user.uid}`
+      );
+      if (savedLogoUrl) {
+        setLogoUrl(savedLogoUrl);
+      }
     }
-  }, [content, isTemplateTypePdf]);
+  }, [user]);
 
-  const handleSubmit = async (values: TemplateFormValues) => {
-    console.log(
-      "Soumission du formulaire de template avec les valeurs:",
-      values
-    );
-
-    // Si c'est un template PDF, extrait les champs
-    if (values.type === "pdf") {
-      const fields = TemplateService.extractPdfFields(values.content);
-      console.log("Champs PDF extraits:", fields);
-
-      // Ajout des champs à l'objet values avant de l'envoyer
-      const valuesWithFields = {
-        ...values,
-        pdfFields: fields,
-      };
-
-      await onSave(valuesWithFields);
-      console.log("Template sauvegardé avec succès");
-      return;
-    }
-
+  // Initialiser les éléments du canvas au chargement initial
+  useEffect(() => {
     try {
-      await onSave(values);
-      console.log("Template sauvegardé avec succès");
-    } catch (error) {
-      console.error("Erreur lors de la sauvegarde du template:", error);
+      // Si l'on a des données initiales et que c'est un template existant,
+      // essayer de parser le contenu pour récupérer les éléments du canvas
+      if (initialData?.id) {
+        // Tenter d'extraire les éléments du canvas depuis le contenu
+        const canvasDataMatch = initialData.content.match(
+          /data-canvas-json="([^"]*)"/
+        );
+
+        if (canvasDataMatch && canvasDataMatch[1]) {
+          try {
+            const decodedJson = decodeURIComponent(canvasDataMatch[1]);
+            const parsedElements = JSON.parse(decodedJson) as CanvasElement[];
+
+            if (Array.isArray(parsedElements) && parsedElements.length > 0) {
+              setCanvasElements(parsedElements);
+              return; // Si on a réussi à récupérer les éléments, on arrête là
+            }
+          } catch {
+            // Ignorer l'erreur
+          }
+        }
+
+        // Fallback: créer un élément texte basique si le parsing a échoué
+        setCanvasElements([
+          {
+            id: `element-${Date.now()}`,
+            type: "text",
+            x: 50,
+            y: 50,
+            content: "Template existant",
+            style: {
+              fontSize: 24,
+              fontWeight: "bold",
+              color: "#000000",
+            },
+          },
+        ]);
+      }
+    } catch {
+      // Ignorer l'erreur
     }
+  }, [initialData]);
+
+  const handleCanvasElementsChange = (elements: CanvasElement[]) => {
+    setCanvasElements(elements);
+
+    // Récupérer toutes les variables depuis les éléments
+    const variables = elements
+      .filter((el) => el.isVariable)
+      .map((el) => {
+        // Extraire le nom de la variable des crochets [nom_variable]
+        const match = el.content.match(/\[(.+?)\]/);
+        return match ? match[1] : null;
+      })
+      .filter(Boolean) as string[];
+
+    // Mettre à jour le contenu du formulaire sans créer une boucle infinie
+    // On utilise setTimeout pour s'assurer que cette mise à jour est asynchrone
+    setTimeout(() => {
+      const htmlContent = `
+      <div class="canvas-template" data-canvas-json="${encodeURIComponent(JSON.stringify(elements))}">
+        ${elements.map(generateElementHtml).join("\n")}
+        <!-- Variables: ${variables.join(", ")} -->
+      </div>
+      `;
+
+      form.setValue("content", htmlContent, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: false,
+      });
+    }, 0);
   };
 
-  const getTemplateContentPlaceholder = () => {
-    if (isTemplateTypePdf) {
-      return "Contenu du template PDF avec des champs dynamiques entre crochets comme [nom_patient], [date], etc.";
+  // Fonction auxiliaire pour générer l'HTML à partir d'un élément de canvas
+  const generateElementHtml = (element: CanvasElement): string => {
+    const commonStyles = `position:absolute;left:${element.x}px;top:${element.y}px;`;
+
+    if (element.type === "text" || element.type === "variable") {
+      const fontSize = element.style?.fontSize || 16;
+      const fontWeight = element.style?.fontWeight || "normal";
+      const color = element.style?.color || "#000000";
+      const fontStyle =
+        element.style?.fontWeight === "italic" ? "italic" : "normal";
+
+      const styles = `${commonStyles}font-size:${fontSize}px;font-weight:${fontWeight};color:${color};font-style:${fontStyle};white-space:pre-wrap;`;
+
+      return `<div style="${styles}">${element.content}</div>`;
+    } else if (element.type === "image" && element.content) {
+      const width = element.width ? `width:${element.width}px;` : "";
+      const height = element.height ? `height:${element.height}px;` : "";
+
+      const styles = `${commonStyles}${width}${height}max-width:100%;`;
+
+      return `<img src="${element.content}" alt="Image" style="${styles}" />`;
     }
-    return "Contenu du template...";
+
+    return "";
+  };
+
+  const handleSubmit = async (values: TemplateFormValues) => {
+    // Extraire les champs
+    const fields = TemplateService.extractPdfFields(values.content);
+
+    // Ajout des champs à l'objet values avant de l'envoyer
+    const valuesWithFields = {
+      ...values,
+      pdfFields: fields,
+    };
+
+    try {
+      await onSubmit(valuesWithFields);
+    } catch {
+      // Ignorer l'erreur (déjà gérée par le composant parent)
+    }
   };
 
   return (
@@ -179,55 +274,24 @@ Date de naissance: [date_naissance]</p>
 
             <FormField
               control={form.control}
-              name="type"
-              render={({ field }) => (
-                <FormItem className="space-y-3">
-                  <FormLabel>Type de template</FormLabel>
-                  <FormControl>
-                    <RadioGroup
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                      className="flex flex-col space-y-1"
-                    >
-                      <FormItem className="flex items-center space-x-3 space-y-0">
-                        <FormControl>
-                          <RadioGroupItem value="normal" />
-                        </FormControl>
-                        <FormLabel className="font-normal">
-                          Template standard
-                        </FormLabel>
-                      </FormItem>
-                      <FormItem className="flex items-center space-x-3 space-y-0">
-                        <FormControl>
-                          <RadioGroupItem value="pdf" />
-                        </FormControl>
-                        <FormLabel className="font-normal">
-                          Template PDF
-                        </FormLabel>
-                      </FormItem>
-                    </RadioGroup>
-                  </FormControl>
-                  <FormDescription>
-                    {isTemplateTypePdf
-                      ? "Les templates PDF peuvent contenir des champs dynamiques entre crochets (ex: [nom_patient])."
-                      : "Les templates standards sont utilisés pour la génération de documents."}
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
               name="content"
-              render={({ field }) => (
+              render={() => (
                 <FormItem>
-                  <FormLabel>Contenu du template</FormLabel>
+                  <FormLabel>Édition visuelle</FormLabel>
                   <FormControl>
-                    <TemplateEditor
-                      content={field.value}
-                      onChange={field.onChange}
-                      placeholder={getTemplateContentPlaceholder()}
+                    <CanvasEditor
+                      initialElements={canvasElements}
+                      onChange={handleCanvasElementsChange}
+                      availableVariables={[
+                        "nom_patient",
+                        "date_naissance",
+                        "date",
+                        "contenu",
+                        "adresse",
+                        "telephone",
+                        "email",
+                      ]}
+                      logoUrl={logoUrl}
                     />
                   </FormControl>
                   <FormMessage />
@@ -235,27 +299,32 @@ Date de naissance: [date_naissance]</p>
               )}
             />
 
-            {isTemplateTypePdf && content && (
+            {form.watch("content") && (
               <div className="bg-gray-50 p-3 rounded-md border">
                 <h4 className="text-sm font-medium mb-2">Champs détectés:</h4>
                 <div className="flex flex-wrap gap-2">
-                  {TemplateService.extractPdfFields(content).map((field) => (
-                    <div
-                      key={field}
-                      className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full"
-                    >
-                      {field}
-                    </div>
-                  ))}
+                  {TemplateService.extractPdfFields(form.watch("content")).map(
+                    (field) => (
+                      <div
+                        key={field}
+                        className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full"
+                      >
+                        {field}
+                      </div>
+                    )
+                  )}
                 </div>
               </div>
             )}
           </CardContent>
 
-          <CardFooter className="flex justify-end">
+          <CardFooter className="flex justify-between space-x-4">
+            <Button type="button" variant="outline" onClick={onCancel}>
+              Annuler
+            </Button>
             <Button type="submit" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {template ? "Mettre à jour" : "Créer le template"}
+              {initialData ? "Mettre à jour" : "Créer le template"}
             </Button>
           </CardFooter>
         </Card>

@@ -298,7 +298,7 @@ export function PatientsPage() {
                               Supprimer
                             </Button>
                           </AlertDialogTrigger>
-                          <AlertDialogContent>
+                          <AlertDialogContent className="bg-white">
                             <AlertDialogHeader>
                               <AlertDialogTitle>
                                 Confirmer la suppression

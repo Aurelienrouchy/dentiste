@@ -7,7 +7,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsItem } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -16,12 +15,11 @@ import {
 } from "@/components/ui/dialog";
 import {
   Plus,
-  FileText,
-  Pencil,
   Trash2,
   AlertCircle,
   Copy,
   FileDown,
+  ArrowLeft,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { TemplateForm } from "@/components/templates/TemplateForm";
@@ -45,18 +43,17 @@ import { PdfGenerator } from "@/components/templates/PdfGenerator";
 
 export function TemplatesPage() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState("mes-templates");
   const [templates, setTemplates] = useState<DocumentTemplate[]>([]);
-  const [pdfTemplates, setPdfTemplates] = useState<DocumentTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isCreating, setIsCreating] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isDuplicating, setIsDuplicating] = useState(false);
   const [selectedTemplate, setSelectedTemplate] =
     useState<DocumentTemplate | null>(null);
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
-  const [isDuplicating, setIsDuplicating] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
+
+  // Nouvel état pour gérer l'affichage de l'éditeur ou de la liste
+  const [showEditor, setShowEditor] = useState(false);
 
   // Charger les templates
   useEffect(() => {
@@ -73,123 +70,55 @@ export function TemplatesPage() {
       setError(null);
       const loadedTemplates = await TemplateService.getTemplates(user.uid);
       setTemplates(loadedTemplates);
-      // Filtrer les templates PDF
-      const pdfTemplatesList = loadedTemplates.filter((t) => t.type === "pdf");
-      setPdfTemplates(pdfTemplatesList);
-    } catch (err) {
-      console.error("Erreur lors du chargement des templates:", err);
+    } catch {
       setError("Impossible de charger les templates. Veuillez réessayer.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Filtrer les templates selon l'onglet actif
-  const filteredTemplates = templates.filter((t) => {
-    if (activeTab === "mes-templates") {
-      return !t.isSystem && (t.type === "normal" || !t.type);
-    } else if (activeTab === "templates-systeme") {
-      return t.isSystem && (t.type === "normal" || !t.type);
-    } else {
-      return false;
-    }
-  });
-
   // Créer un nouveau template
   const handleCreateTemplate = async (values: {
     title: string;
     description: string;
     content: string;
-    type: "normal" | "pdf";
     pdfFields?: string[];
   }) => {
     if (!user) {
-      console.error(
-        "Tentative de création de template sans utilisateur connecté"
-      );
       return;
     }
-
-    console.log("Début de création du template:", values);
 
     try {
       setIsProcessing(true);
       setError(null);
-      console.log("Appel à TemplateService.createTemplate avec les valeurs:", {
-        userId: user.uid,
-        title: values.title,
-        description: values.description,
-        content:
-          values.content.length > 100
-            ? values.content.substring(0, 100) + "..."
-            : values.content,
-        type: values.type,
-        pdfFields: values.pdfFields,
-      });
       await TemplateService.createTemplate({
         userId: user.uid,
         title: values.title,
         description: values.description,
         content: values.content,
-        type: values.type,
         pdfFields: values.pdfFields || [],
       });
-      console.log("Template créé avec succès");
-      setIsCreating(false);
-      loadTemplates();
-    } catch (err) {
-      console.error("Erreur détaillée lors de la création du template:", err);
+      setShowEditor(false);
+      await loadTemplates();
+    } catch {
       setError("Impossible de créer le template. Veuillez réessayer.");
     } finally {
       setIsProcessing(false);
     }
   };
 
-  // Mettre à jour un template existant
-  const handleUpdateTemplate = async (values: {
-    title: string;
-    description: string;
-    content: string;
-    type: "normal" | "pdf";
-    pdfFields?: string[];
-  }) => {
-    if (!user || !selectedTemplate) return;
-
-    try {
-      setIsProcessing(true);
-      setError(null);
-      await TemplateService.updateTemplate(selectedTemplate.id, {
-        title: values.title,
-        description: values.description,
-        content: values.content,
-        type: values.type,
-        pdfFields: values.pdfFields || [],
-      });
-      setIsEditing(false);
-      setSelectedTemplate(null);
-      loadTemplates();
-    } catch (err) {
-      console.error("Erreur lors de la mise à jour du template:", err);
-      setError("Impossible de mettre à jour le template. Veuillez réessayer.");
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  // Supprimer un template
+  // Gérer la suppression d'un template
   const handleDeleteTemplate = async () => {
     if (!selectedTemplate) return;
-
     try {
       setIsProcessing(true);
       setError(null);
       await TemplateService.deleteTemplate(selectedTemplate.id);
       setIsConfirmDeleteOpen(false);
       setSelectedTemplate(null);
-      loadTemplates();
-    } catch (err) {
-      console.error("Erreur lors de la suppression du template:", err);
-      setError("Impossible de supprimer le template. Veuillez réessayer.");
+      await loadTemplates();
+    } catch {
+      setError("Erreur lors de la suppression du template");
     } finally {
       setIsProcessing(false);
     }
@@ -207,352 +136,170 @@ export function TemplatesPage() {
         title: `${selectedTemplate.title} (copie)`,
         description: selectedTemplate.description,
         content: selectedTemplate.content,
-        type: selectedTemplate.type || "normal",
         pdfFields: selectedTemplate.pdfFields || [],
       });
       setIsDuplicating(false);
       setSelectedTemplate(null);
-      loadTemplates();
-    } catch (err) {
-      console.error("Erreur lors de la duplication du template:", err);
+      await loadTemplates();
+    } catch {
       setError("Impossible de dupliquer le template. Veuillez réessayer.");
     } finally {
       setIsProcessing(false);
     }
   };
 
+  // Afficher l'éditeur pour un nouveau template
+  const handleNewTemplate = () => {
+    setShowEditor(true);
+  };
+
+  // Annuler la création du template
+  const handleCancelTemplate = () => {
+    setShowEditor(false);
+  };
+
+  // Rendu conditionnel basé sur l'état showEditor
+  if (showEditor) {
+    return (
+      <div className="container mx-auto py-6 max-w-7xl">
+        <div className="flex items-center mb-6">
+          <Button
+            variant="ghost"
+            onClick={handleCancelTemplate}
+            className="mr-2"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Retour
+          </Button>
+          <h1 className="text-3xl font-bold">Créer un nouveau template</h1>
+        </div>
+
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        <TemplateForm
+          onSubmit={handleCreateTemplate}
+          onCancel={handleCancelTemplate}
+          isLoading={isProcessing}
+          error={error}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto py-6 max-w-7xl">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold">Templates</h1>
+          <h1 className="text-3xl font-bold">Templates PDF</h1>
           <p className="text-muted-foreground">
-            Gérez vos templates de documents et générez des PDF personnalisés
+            Créez vos propres templates PDF et générez des documents
+            personnalisés
           </p>
         </div>
-        <Button onClick={() => setIsCreating(true)}>
+        <Button onClick={handleNewTemplate}>
           <Plus className="mr-2 h-4 w-4" />
           Nouveau template
         </Button>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="mb-4">
-          <TabsItem value="mes-templates">Mes templates</TabsItem>
-          <TabsItem value="templates-systeme">Templates système</TabsItem>
-          <TabsItem value="pdf-templates">PDF Templates</TabsItem>
-        </TabsList>
+      {error && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
-        <TabsContent value="mes-templates">
-          {isLoading ? (
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex justify-center p-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Templates PDF disponibles</CardTitle>
+              <CardDescription>
+                Vos templates PDF personnalisés pour générer des documents
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="text-center py-4">
+                  Chargement des templates...
                 </div>
-              </CardContent>
-            </Card>
-          ) : filteredTemplates.length === 0 ? (
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex flex-col items-center justify-center p-8 text-center">
-                  <FileText className="h-10 w-10 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium mb-2">
-                    Aucun template personnalisé
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-6">
-                    Vous n'avez pas encore créé de templates personnalisés.
-                    Commencez par en créer un.
+              ) : templates.length === 0 ? (
+                <div className="text-center py-4">
+                  <p className="text-muted-foreground mb-4">
+                    Vous n'avez pas encore créé de templates PDF.
                   </p>
-                  <Button onClick={() => setIsCreating(true)}>
+                  <Button onClick={handleNewTemplate}>
                     <Plus className="mr-2 h-4 w-4" />
-                    Créer un template
+                    Créer un template PDF
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {filteredTemplates.map((template) => (
-                <Card key={template.id} className="overflow-hidden">
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between items-start">
-                      <CardTitle className="text-lg">
-                        {template.title}
-                      </CardTitle>
-                      <div className="flex space-x-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedTemplate(template);
-                            setIsEditing(true);
-                          }}
-                          title="Modifier"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedTemplate(template);
-                            setIsDuplicating(true);
-                          }}
-                          title="Dupliquer"
-                        >
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedTemplate(template);
-                            setIsConfirmDeleteOpen(true);
-                          }}
-                          title="Supprimer"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                    <CardDescription>{template.description}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <FileText className="h-4 w-4 mr-2 text-muted-foreground" />
-                        <span className="text-sm text-muted-foreground">
-                          {new Date(template.updatedAt).toLocaleDateString()}
-                        </span>
-                      </div>
-                      <Badge
-                        variant={
-                          template.type === "pdf" ? "secondary" : "outline"
-                        }
-                      >
-                        {template.type === "pdf" ? "PDF" : "Standard"}
-                      </Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="templates-systeme">
-          {isLoading ? (
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex justify-center p-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              ) : (
+                <div className="space-y-4">
+                  {templates.map((template) => (
+                    <Card key={template.id} className="overflow-hidden">
+                      <CardHeader className="pb-2">
+                        <div className="flex justify-between items-start">
+                          <CardTitle className="text-lg">
+                            {template.title}
+                          </CardTitle>
+                          <div className="flex space-x-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedTemplate(template);
+                                setIsDuplicating(true);
+                              }}
+                              title="Dupliquer"
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedTemplate(template);
+                                setIsConfirmDeleteOpen(true);
+                              }}
+                              title="Supprimer"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                        <CardDescription>
+                          {template.description}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center">
+                            <FileDown className="h-4 w-4 mr-2 text-muted-foreground" />
+                            <span className="text-sm text-muted-foreground">
+                              {template.pdfFields?.length || 0} champs
+                              dynamiques
+                            </span>
+                          </div>
+                          <Badge variant="secondary">PDF</Badge>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
-              </CardContent>
-            </Card>
-          ) : filteredTemplates.length === 0 ? (
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex flex-col items-center justify-center p-8 text-center">
-                  <FileText className="h-10 w-10 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium mb-2">
-                    Aucun template système
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    Il n'y a pas encore de templates système disponibles.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {filteredTemplates.map((template) => (
-                <Card key={template.id} className="overflow-hidden">
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between items-start">
-                      <CardTitle className="text-lg">
-                        {template.title}
-                      </CardTitle>
-                      <Badge variant="secondary">Système</Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pb-2">
-                    <CardDescription className="line-clamp-2">
-                      {template.description}
-                    </CardDescription>
-                  </CardContent>
-                  <div className="p-4 pt-0 flex justify-end gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedTemplate(template);
-                        setIsDuplicating(true);
-                      }}
-                    >
-                      <Copy className="h-3.5 w-3.5 mr-1" />
-                      Dupliquer
-                    </Button>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          )}
-        </TabsContent>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
-        <TabsContent value="pdf-templates">
-          {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Templates PDF disponibles</CardTitle>
-                  <CardDescription>
-                    Vos templates PDF personnalisés pour générer des documents
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {isLoading ? (
-                    <div className="text-center py-4">
-                      Chargement des templates...
-                    </div>
-                  ) : pdfTemplates.length === 0 ? (
-                    <div className="text-center py-4">
-                      <p className="text-muted-foreground mb-4">
-                        Vous n'avez pas encore créé de templates PDF.
-                      </p>
-                      <Button onClick={() => setIsCreating(true)}>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Créer un template PDF
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {pdfTemplates.map((template) => (
-                        <Card key={template.id} className="overflow-hidden">
-                          <CardHeader className="pb-2">
-                            <div className="flex justify-between items-start">
-                              <CardTitle className="text-lg">
-                                {template.title}
-                              </CardTitle>
-                              <div className="flex space-x-1">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedTemplate(template);
-                                    setIsEditing(true);
-                                  }}
-                                  title="Modifier"
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedTemplate(template);
-                                    setIsDuplicating(true);
-                                  }}
-                                  title="Dupliquer"
-                                >
-                                  <Copy className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedTemplate(template);
-                                    setIsConfirmDeleteOpen(true);
-                                  }}
-                                  title="Supprimer"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-                            <CardDescription>
-                              {template.description}
-                            </CardDescription>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center">
-                                <FileDown className="h-4 w-4 mr-2 text-muted-foreground" />
-                                <span className="text-sm text-muted-foreground">
-                                  {template.pdfFields?.length || 0} champs
-                                  dynamiques
-                                </span>
-                              </div>
-                              <Badge variant="secondary">PDF</Badge>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-
-            <div>
-              <PdfGenerator templates={pdfTemplates} isLoading={isLoading} />
-            </div>
-          </div>
-        </TabsContent>
-      </Tabs>
-
-      {/* Formulaire de création de template */}
-      <Dialog
-        open={isCreating}
-        onOpenChange={(open) => !open && setIsCreating(false)}
-      >
-        <DialogContent className="bg-white sm:max-w-[800px]">
-          <DialogHeader>
-            <DialogTitle>Créer un nouveau template</DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <TemplateForm
-              onSave={handleCreateTemplate}
-              isLoading={isProcessing}
-              error={error}
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Formulaire d'édition de template */}
-      <Dialog
-        open={isEditing}
-        onOpenChange={(open) => {
-          if (!open) {
-            setIsEditing(false);
-            setSelectedTemplate(null);
-          }
-        }}
-      >
-        <DialogContent className="bg-white sm:max-w-[800px]">
-          <DialogHeader>
-            <DialogTitle>Modifier le template</DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            {selectedTemplate && (
-              <TemplateForm
-                template={selectedTemplate}
-                onSave={handleUpdateTemplate}
-                isLoading={isProcessing}
-                error={error}
-              />
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+        <div>
+          <PdfGenerator templates={templates} isLoading={isLoading} />
+        </div>
+      </div>
 
       {/* Confirmation de duplication */}
       <Dialog

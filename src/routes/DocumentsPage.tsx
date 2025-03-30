@@ -6,7 +6,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsItem } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -39,12 +39,18 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectGroup,
+  SelectLabel,
 } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useDocuments, documentTypes } from "@/lib/hooks/useDocuments";
+import {
+  useDocuments,
+  documentTypes,
+  DocumentType,
+} from "@/lib/hooks/useDocuments";
 import { useAIService } from "@/lib/services/ai.service";
 import { PatientService } from "@/lib/services/patient.service";
 import { useAuth } from "@/lib/hooks/useAuth";
@@ -54,27 +60,35 @@ import { SimplifiedMobileRecord } from "@/components/SimplifiedMobileRecord";
 
 // Schéma de validation pour le formulaire
 const formSchema = z.object({
-  patientId: z.string().min(1, { message: "Veuillez sélectionner un patient" }),
+  patientId: z.string({
+    required_error: "Veuillez sélectionner un patient",
+  }),
   documentType: z
-    .string()
-    .min(1, { message: "Veuillez sélectionner un type de document" }),
+    .string({
+      required_error: "Veuillez sélectionner un type de document",
+    })
+    .default(documentTypes[0].id),
 });
 
 // Composant principal de la page Documents
 export function DocumentsPage() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("generation");
-  const [selectedDocType, setSelectedDocType] = useState(documentTypes[0]);
-  const [generatedDocument, setGeneratedDocument] = useState("");
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [isLoadingPatients, setIsLoadingPatients] = useState(true);
   const [documentTemplate, setDocumentTemplate] = useState("");
   const [transcript, setTranscript] = useState("");
+  const [generatedDocument, setGeneratedDocument] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [isLoadingPatients, setIsLoadingPatients] = useState(true);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [selectedDocType, setSelectedDocType] = useState<DocumentType>(
+    documentTypes[0]
+  );
+
+  // Access documentsService with all its methods
+  const documentsService = useDocuments();
 
   // Utiliser les hooks personnalisés
-  const { user } = useAuth();
-  const documentsService = useDocuments();
   const {
     isRecording,
     recordingTime,
@@ -396,8 +410,8 @@ Date de naissance : ${birthDate}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsItem value="generation">Génération de documents</TabsItem>
-          <TabsItem value="archive">Documents archivés</TabsItem>
+          <TabsTrigger value="generation">Génération de documents</TabsTrigger>
+          <TabsTrigger value="archive">Documents archivés</TabsTrigger>
         </TabsList>
 
         <TabsContent value="generation" className="space-y-4">
@@ -477,7 +491,20 @@ Date de naissance : ${birthDate}
                         <Select
                           onValueChange={(value) => {
                             field.onChange(value);
-                            const found = documentTypes.find(
+                            // Combine standard and custom document types
+                            const allDocTypes = [
+                              ...documentTypes,
+                              ...documentsService.customTemplates.map(
+                                (template) => ({
+                                  id: `template_${template.id}`,
+                                  title: template.title,
+                                  description: template.description,
+                                  isCustomTemplate: true,
+                                  templateId: template.id,
+                                })
+                              ),
+                            ];
+                            const found = allDocTypes.find(
                               (d) => d.id === value
                             );
                             if (found) {
@@ -492,11 +519,30 @@ Date de naissance : ${birthDate}
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent className="bg-white">
-                            {documentTypes.map((docType) => (
-                              <SelectItem key={docType.id} value={docType.id}>
-                                {docType.title}
-                              </SelectItem>
-                            ))}
+                            <SelectGroup>
+                              <SelectLabel>Types standards</SelectLabel>
+                              {documentTypes.map((docType) => (
+                                <SelectItem key={docType.id} value={docType.id}>
+                                  {docType.title}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+
+                            {documentsService.customTemplates.length > 0 && (
+                              <SelectGroup>
+                                <SelectLabel>Mes templates</SelectLabel>
+                                {documentsService.customTemplates.map(
+                                  (template) => (
+                                    <SelectItem
+                                      key={`template_${template.id}`}
+                                      value={`template_${template.id}`}
+                                    >
+                                      {template.title}
+                                    </SelectItem>
+                                  )
+                                )}
+                              </SelectGroup>
+                            )}
                           </SelectContent>
                         </Select>
                       </FormItem>
