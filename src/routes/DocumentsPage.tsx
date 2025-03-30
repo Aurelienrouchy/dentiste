@@ -716,7 +716,7 @@ Date de naissance : ${birthDate}
                       <div className="mt-4">
                         <h4 className="font-medium mb-2">Document généré</h4>
                         <div className="border rounded-md p-3 bg-white">
-                          <div className="text-sm document-container">
+                          <div className="text-sm">
                             {parse(cleanHtml(generatedDocument))}
                           </div>
                         </div>
