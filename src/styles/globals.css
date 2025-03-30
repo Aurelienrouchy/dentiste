@@ -1,0 +1,33 @@
+.document-container {
+  position: relative;
+  min-height: 500px;
+  width: 100%;
+  overflow: auto;
+}
+
+.document-container * {
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
+/* Style spécifique pour les éléments canvas-template */
+.document-container .canvas-template {
+  position: relative;
+  width: 100%;
+  min-height: 500px; 
+  background-color: white;
+  padding: 20px;
+}
+
+/* Pour que les éléments positionnés absolument soient contenus dans le parent */
+.document-container [style*="position:absolute"] {
+  position: relative !important;
+  margin-bottom: 10px;
+}
+
+/* Préserver les sauts de ligne et espaces */
+.document-container pre,
+.document-container div {
+  white-space: pre-wrap;
+  word-break: break-word;
+} 

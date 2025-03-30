@@ -57,6 +57,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { Patient } from "@/lib/types/patient";
 import { Textarea } from "../components/ui/textarea";
 import { SimplifiedMobileRecord } from "@/components/SimplifiedMobileRecord";
+import parse from "html-react-parser";
 
 // Schéma de validation pour le formulaire
 const formSchema = z.object({
@@ -701,9 +702,9 @@ Date de naissance : ${birthDate}
                       <div className="mt-4">
                         <h4 className="font-medium mb-2">Document généré</h4>
                         <div className="border rounded-md p-3 bg-white">
-                          <pre className="text-sm whitespace-pre-wrap">
-                            {generatedDocument}
-                          </pre>
+                          <div className="text-sm document-container">
+                            {parse(generatedDocument)}
+                          </div>
                         </div>
                         <div className="flex justify-end mt-2">
                           <Button
@@ -801,9 +802,9 @@ Date de naissance : ${birthDate}
                   </DialogTitle>
                 </DialogHeader>
                 <div className="border rounded-md p-4 my-4 bg-white">
-                  <pre className="text-sm whitespace-pre-wrap">
-                    {documentsService.selectedDocument.content}
-                  </pre>
+                  <div className="document-container">
+                    {parse(documentsService.selectedDocument.content)}
+                  </div>
                 </div>
                 <DialogFooter>
                   <Button
