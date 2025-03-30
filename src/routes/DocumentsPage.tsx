@@ -73,14 +73,37 @@ const formSchema = z.object({
 
 // Fonction pour nettoyer le HTML avant rendu
 const cleanHtml = (html: string): string => {
-  // Convertir les éléments positionnés absolument
-  let cleaned = html.replace(/position:absolute/g, "position:static");
+  // Convertir les éléments positionnés absolument, fixed ou relative
+  let cleaned = html
+    .replace(/position\s*:\s*absolute/gi, "position:static")
+    .replace(/position\s*:\s*fixed/gi, "position:static")
+    .replace(/position\s*:\s*relative/gi, "position:static");
+
+  // Nettoyer les attributs de style qui pourraient causer des problèmes
+  cleaned = cleaned
+    .replace(/top\s*:\s*\d+[^;"]*/gi, "top:auto")
+    .replace(/left\s*:\s*\d+[^;"]*/gi, "left:auto")
+    .replace(/right\s*:\s*\d+[^;"]*/gi, "right:auto")
+    .replace(/bottom\s*:\s*\d+[^;"]*/gi, "bottom:auto")
+    .replace(/z-index\s*:\s*\d+/gi, "z-index:auto")
+    .replace(/transform\s*:[^;"]*/gi, "transform:none");
 
   // Retirer les attributs data-canvas-json qui sont volumineux et inutiles pour l'affichage
   cleaned = cleaned.replace(/data-canvas-json="[^"]*"/g, "");
 
   // Ajouter une classe spéciale à tous les éléments div pour s'assurer qu'ils s'affichent correctement
   cleaned = cleaned.replace(/<div/g, '<div class="template-element"');
+
+  // Ajouter une classe générale pour les conteneurs principaux
+  cleaned = cleaned.replace(
+    /<div class="canvas-template/g,
+    '<div class="canvas-template document-wrapper'
+  );
+
+  // S'assurer que le document a un fond blanc
+  if (!cleaned.includes("background-color")) {
+    cleaned = `<div class="document-wrapper" style="background-color: white; width: 100%;">${cleaned}</div>`;
+  }
 
   return cleaned;
 };
@@ -715,8 +738,11 @@ Date de naissance : ${birthDate}
                     {generatedDocument && (
                       <div className="mt-4">
                         <h4 className="font-medium mb-2">Document généré</h4>
-                        <div className="border rounded-md p-3 bg-white">
-                          <div className="text-sm">
+                        <div className="border rounded-md overflow-hidden bg-white">
+                          <div
+                            className="text-sm document-container overflow-auto"
+                            style={{ maxHeight: "600px" }}
+                          >
                             {parse(cleanHtml(generatedDocument))}
                           </div>
                         </div>
@@ -815,8 +841,11 @@ Date de naissance : ${birthDate}
                     {documentsService.selectedDocument.title}
                   </DialogTitle>
                 </DialogHeader>
-                <div className="border rounded-md p-4 my-4 bg-white">
-                  <div className="document-container">
+                <div className="border rounded-md overflow-hidden bg-white my-4">
+                  <div
+                    className="document-container overflow-auto"
+                    style={{ maxHeight: "600px" }}
+                  >
                     {parse(
                       cleanHtml(documentsService.selectedDocument.content)
                     )}
