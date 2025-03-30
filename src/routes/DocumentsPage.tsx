@@ -71,20 +71,6 @@ const formSchema = z.object({
     .default(documentTypes[0].id),
 });
 
-// Fonction pour nettoyer le HTML avant rendu
-const cleanHtml = (html: string): string => {
-  // Convertir les éléments positionnés absolument
-  let cleaned = html.replace(/position:absolute/g, "position:static");
-
-  // Retirer les attributs data-canvas-json qui sont volumineux et inutiles pour l'affichage
-  cleaned = cleaned.replace(/data-canvas-json="[^"]*"/g, "");
-
-  // Ajouter une classe spéciale à tous les éléments div pour s'assurer qu'ils s'affichent correctement
-  cleaned = cleaned.replace(/<div/g, '<div class="template-element"');
-
-  return cleaned;
-};
-
 // Composant principal de la page Documents
 export function DocumentsPage() {
   const { user } = useAuth();
@@ -725,7 +711,7 @@ Date de naissance : ${birthDate}
                               overflow: "auto",
                             }}
                           >
-                            {parse(cleanHtml(generatedDocument))}
+                            {parse(generatedDocument)}
                           </div>
                         </div>
                         <div className="flex justify-end mt-2">
@@ -833,9 +819,7 @@ Date de naissance : ${birthDate}
                       overflow: "auto",
                     }}
                   >
-                    {parse(
-                      cleanHtml(documentsService.selectedDocument.content)
-                    )}
+                    {parse(documentsService.selectedDocument.content)}
                   </div>
                 </div>
                 <DialogFooter>
