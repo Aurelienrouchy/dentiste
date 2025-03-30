@@ -245,45 +245,70 @@ export class TemplateService {
     templateId: string,
     userId?: string
   ): Promise<boolean> {
-    // Récupérer le template pour avoir les URLs des images et savoir où il est stocké
-    const template = await this.getTemplate(templateId, userId);
-    if (!template) {
-      return false;
-    }
+    try {
+      // Récupérer le template pour avoir les URLs des images et savoir où il est stocké
+      const template = await this.getTemplate(templateId, userId);
+      if (!template) {
+        console.error(`Template ${templateId} non trouvé`);
+        return false;
+      }
 
-    // Supprimer les images stockées dans Firebase Storage
-    if (template.imageUrls && template.imageUrls.length > 0) {
-      await Promise.all(
-        template.imageUrls.map((url) => {
-          // Extraire le chemin de l'URL
-          const imagePath = this.getImagePathFromUrl(url);
-          if (imagePath) {
-            const imageRef = ref(storage, imagePath);
-            return deleteObject(imageRef).catch(() => {
-              // Ignorer l'erreur et continuer
-            });
-          }
-          return Promise.resolve();
-        })
-      );
-    }
+      // Vérifier si l'utilisateur est propriétaire du template (si ce n'est pas un template système)
+      if (!template.isSystem && template.userId !== userId) {
+        console.error(
+          `L'utilisateur ${userId} n'est pas propriétaire du template ${templateId}`
+        );
+        return false;
+      }
 
-    // Supprimer le document du template
-    if (template.isSystem) {
-      await deleteDoc(doc(db, this.SYSTEM_TEMPLATES_COLLECTION, templateId));
-    } else {
-      await deleteDoc(
-        doc(
+      // Supprimer les images stockées dans Firebase Storage
+      if (template.imageUrls && template.imageUrls.length > 0) {
+        await Promise.all(
+          template.imageUrls.map((url) => {
+            // Extraire le chemin de l'URL
+            const imagePath = this.getImagePathFromUrl(url);
+            if (imagePath) {
+              const imageRef = ref(storage, imagePath);
+              return deleteObject(imageRef).catch((error) => {
+                console.error(
+                  `Erreur lors de la suppression de l'image ${imagePath}:`,
+                  error
+                );
+                // Ignorer l'erreur et continuer
+              });
+            }
+            return Promise.resolve();
+          })
+        );
+      }
+
+      // Supprimer le document du template
+      if (template.isSystem) {
+        console.log(`Suppression du template système ${templateId}`);
+        await deleteDoc(doc(db, this.SYSTEM_TEMPLATES_COLLECTION, templateId));
+      } else {
+        console.log(
+          `Suppression du template utilisateur ${templateId} pour l'utilisateur ${template.userId}`
+        );
+        const templateRef = doc(
           db,
           this.USER_TEMPLATES_COLLECTION,
           template.userId,
           "templates",
           templateId
-        )
-      );
-    }
+        );
+        await deleteDoc(templateRef);
+      }
 
-    return true;
+      console.log(`Template ${templateId} supprimé avec succès`);
+      return true;
+    } catch (error) {
+      console.error(
+        `Erreur lors de la suppression du template ${templateId}:`,
+        error
+      );
+      throw error;
+    }
   }
 
   /**

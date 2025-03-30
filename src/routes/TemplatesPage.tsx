@@ -20,6 +20,7 @@ import {
   Copy,
   FileDown,
   ArrowLeft,
+  Edit,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { TemplateForm } from "@/components/templates/TemplateForm";
@@ -54,6 +55,7 @@ export function TemplatesPage() {
 
   // Nouvel état pour gérer l'affichage de l'éditeur ou de la liste
   const [showEditor, setShowEditor] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   // Charger les templates
   useEffect(() => {
@@ -77,8 +79,8 @@ export function TemplatesPage() {
     }
   };
 
-  // Créer un nouveau template
-  const handleCreateTemplate = async (values: {
+  // Créer ou mettre à jour un template
+  const handleSaveTemplate = async (values: {
     title: string;
     description: string;
     content: string;
@@ -91,17 +93,39 @@ export function TemplatesPage() {
     try {
       setIsProcessing(true);
       setError(null);
-      await TemplateService.createTemplate({
-        userId: user.uid,
-        title: values.title,
-        description: values.description,
-        content: values.content,
-        pdfFields: values.pdfFields || [],
-      });
+
+      if (isEditing && selectedTemplate) {
+        // Mise à jour d'un template existant
+        await TemplateService.updateTemplate(
+          selectedTemplate.id,
+          {
+            title: values.title,
+            description: values.description,
+            content: values.content,
+            pdfFields: values.pdfFields || [],
+          },
+          user.uid
+        );
+      } else {
+        // Création d'un nouveau template
+        await TemplateService.createTemplate({
+          userId: user.uid,
+          title: values.title,
+          description: values.description,
+          content: values.content,
+          pdfFields: values.pdfFields || [],
+        });
+      }
+
       setShowEditor(false);
+      setIsEditing(false);
+      setSelectedTemplate(null);
       await loadTemplates();
-    } catch {
-      setError("Impossible de créer le template. Veuillez réessayer.");
+    } catch (err) {
+      console.error("Erreur lors de la sauvegarde du template:", err);
+      setError(
+        `Impossible de ${isEditing ? "modifier" : "créer"} le template. Veuillez réessayer.`
+      );
     } finally {
       setIsProcessing(false);
     }
@@ -109,19 +133,34 @@ export function TemplatesPage() {
 
   // Gérer la suppression d'un template
   const handleDeleteTemplate = async () => {
-    if (!selectedTemplate) return;
+    if (!selectedTemplate || !user) return;
     try {
       setIsProcessing(true);
       setError(null);
-      await TemplateService.deleteTemplate(selectedTemplate.id);
-      setIsConfirmDeleteOpen(false);
-      setSelectedTemplate(null);
-      await loadTemplates();
-    } catch {
+      const success = await TemplateService.deleteTemplate(
+        selectedTemplate.id,
+        user.uid
+      );
+      if (success) {
+        setIsConfirmDeleteOpen(false);
+        setSelectedTemplate(null);
+        await loadTemplates();
+      } else {
+        setError("Le template n'a pas pu être supprimé. Veuillez réessayer.");
+      }
+    } catch (err) {
+      console.error("Erreur lors de la suppression:", err);
       setError("Erreur lors de la suppression du template");
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  // Éditer un template existant
+  const handleEditTemplate = (template: DocumentTemplate) => {
+    setSelectedTemplate(template);
+    setIsEditing(true);
+    setShowEditor(true);
   };
 
   // Dupliquer un template
@@ -150,12 +189,16 @@ export function TemplatesPage() {
 
   // Afficher l'éditeur pour un nouveau template
   const handleNewTemplate = () => {
+    setSelectedTemplate(null);
+    setIsEditing(false);
     setShowEditor(true);
   };
 
   // Annuler la création du template
   const handleCancelTemplate = () => {
     setShowEditor(false);
+    setIsEditing(false);
+    setSelectedTemplate(null);
   };
 
   // Rendu conditionnel basé sur l'état showEditor
@@ -171,7 +214,9 @@ export function TemplatesPage() {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Retour
           </Button>
-          <h1 className="text-3xl font-bold">Créer un nouveau template</h1>
+          <h1 className="text-3xl font-bold">
+            {isEditing ? "Modifier le template" : "Créer un nouveau template"}
+          </h1>
         </div>
 
         {error && (
@@ -182,7 +227,8 @@ export function TemplatesPage() {
         )}
 
         <TemplateForm
-          onSubmit={handleCreateTemplate}
+          initialData={isEditing ? selectedTemplate : null}
+          onSubmit={handleSaveTemplate}
           onCancel={handleCancelTemplate}
           isLoading={isProcessing}
           error={error}
@@ -248,6 +294,14 @@ export function TemplatesPage() {
                             {template.title}
                           </CardTitle>
                           <div className="flex space-x-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditTemplate(template)}
+                              title="Modifier"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
                             <Button
                               variant="ghost"
                               size="sm"
