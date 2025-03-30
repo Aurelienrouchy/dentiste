@@ -85,7 +85,7 @@ export function TemplateForm({
       content:
         initialData?.content ||
         `
-<div class="canvas-template" data-canvas-json="[]">
+<div class="canvas-template" style="position:relative;" data-canvas-json="[]">
   <!-- Template de document par défaut -->
 </div>
       `.trim(),
@@ -167,7 +167,7 @@ export function TemplateForm({
     // On utilise setTimeout pour s'assurer que cette mise à jour est asynchrone
     setTimeout(() => {
       const htmlContent = `
-      <div class="canvas-template" data-canvas-json="${encodeURIComponent(JSON.stringify(elements))}">
+      <div class="canvas-template" style="position:relative;" data-canvas-json="${encodeURIComponent(JSON.stringify(elements))}">
         ${elements.map(generateElementHtml).join("\n")}
         <!-- Variables: ${variables.join(", ")} -->
       </div>
