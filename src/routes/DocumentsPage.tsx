@@ -139,13 +139,17 @@ export function DocumentsPage() {
 
   // Mettre à jour le template lorsque le patient ou le type de document change
   useEffect(() => {
-    if (selectedPatient) {
-      updateDocumentTemplate();
-    }
+    const loadTemplate = async () => {
+      if (selectedPatient) {
+        await updateDocumentTemplate();
+      }
+    };
+
+    loadTemplate();
   }, [selectedPatient, selectedDocType]);
 
   // Générer le template par défaut
-  const updateDocumentTemplate = () => {
+  const updateDocumentTemplate = async () => {
     if (!selectedPatient) return;
 
     const today = new Date().toLocaleDateString("fr-FR");
@@ -158,6 +162,49 @@ export function DocumentsPage() {
         ).toLocaleDateString("fr-FR")
       : "Non renseignée";
 
+    // Vérifier si c'est un template personnalisé
+    if (selectedDocType.id.startsWith("template_")) {
+      try {
+        // Extraire l'ID réel du template (sans le préfixe)
+        const templateId = selectedDocType.id.replace("template_", "");
+
+        // Trouver le template dans la liste des templates personnalisés
+        const customTemplate = documentsService.customTemplates.find(
+          (t) => t.id === templateId
+        );
+
+        if (customTemplate) {
+          // Remplacer les variables dans le contenu du template
+          let content = customTemplate.content;
+
+          // Remplacer les variables courantes
+          content = content.replace(/\[nom_patient\]/g, patientName);
+          content = content.replace(/\[date_naissance\]/g, birthDate);
+          content = content.replace(/\[date\]/g, today);
+          content = content.replace(/\[adresse\]/g, ""); // Adresse non disponible dans le type Patient
+          content = content.replace(
+            /\[telephone\]/g,
+            selectedPatient.phoneNumber || ""
+          );
+          content = content.replace(/\[email\]/g, selectedPatient.email || "");
+
+          // S'assurer qu'il y a un emplacement pour la transcription
+          if (!content.includes("[transcription]")) {
+            content += "\n\n[transcription]";
+          }
+
+          setDocumentTemplate(content);
+          return;
+        }
+      } catch (error) {
+        console.error(
+          "Erreur lors du chargement du template personnalisé:",
+          error
+        );
+      }
+    }
+
+    // Si ce n'est pas un template personnalisé ou s'il y a eu une erreur, utiliser les templates standards
     let template = "";
 
     switch (selectedDocType.id) {
